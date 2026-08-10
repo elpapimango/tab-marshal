@@ -1,0 +1,11 @@
+{
+  "name": "tab-sorter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Microsoft Edge extension that sorts tabs and tab groups and closes duplicate tabs.",
+  "scripts": {
+    "test": "node --test",
+    "icons": "node tools/make-icons.mjs"
+  }
+}

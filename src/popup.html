@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tab Sorter</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <h1>Tab Sorter</h1>
+      <label class="scope">
+        <span>Scope</span>
+        <select id="scope">
+          <option value="window">This window</option>
+          <option value="all">All windows</option>
+        </select>
+      </label>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab-btn is-active" data-panel="panel-sort" role="tab">Sort</button>
+      <button class="tab-btn" data-panel="panel-dupes" role="tab">Duplicates</button>
+      <button class="tab-btn" data-panel="panel-reload" role="tab">Reload</button>
+    </nav>
+
+    <section id="panel-sort" class="panel is-active">
+      <div class="row">
+        <label for="primary">Sort tabs by</label>
+        <select id="primary"></select>
+      </div>
+
+      <div class="row" id="regex-row" hidden>
+        <label for="regexPattern">Pattern</label>
+        <input id="regexPattern" type="text" spellcheck="false" placeholder="^https?://([^/]+)/" />
+      </div>
+      <div class="row inline" id="regex-opts" hidden>
+        <select id="regexSource" aria-label="Regex applies to">
+          <option value="url">match URL</option>
+          <option value="title">match title</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="regexIgnoreCase" /> ignore case</label>
+      </div>
+      <p class="hint" id="regex-hint" hidden>
+        The first capture group is the sort key; without one the whole match is used.
+        Tabs that don’t match are parked at the end.
+      </p>
+
+      <div class="row">
+        <label for="secondary">Then by</label>
+        <select id="secondary"></select>
+      </div>
+
+      <div class="row">
+        <label for="direction">Order</label>
+        <select id="direction">
+          <option value="asc">Ascending (A → Z)</option>
+          <option value="desc">Descending (Z → A)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="target">What to sort</label>
+        <select id="target">
+          <option value="all">Everything</option>
+          <option value="inside-groups">Inside tab groups only</option>
+          <option value="ungrouped">Ungrouped tabs only</option>
+        </select>
+      </div>
+
+      <fieldset class="group-box" id="group-box">
+        <legend>Tab groups</legend>
+        <div class="row">
+          <label for="groupPlacement">Placement</label>
+          <select id="groupPlacement">
+            <option value="interleave">Mixed with loose tabs</option>
+            <option value="first">All groups first</option>
+            <option value="last">All groups last</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="groupOrderBy">Order groups by</label>
+          <select id="groupOrderBy">
+            <option value="tabs">Their tabs (same criteria)</option>
+            <option value="title">Group name</option>
+            <option value="color">Group colour</option>
+            <option value="size">Number of tabs</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="sort" class="primary">Sort tabs</button>
+        <button id="undo" disabled>Undo</button>
+      </div>
+    </section>
+
+    <section id="panel-dupes" class="panel">
+      <div class="row">
+        <label for="matchMode">Consider duplicate when</label>
+        <select id="matchMode"></select>
+      </div>
+
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="ignoreWww" /> ignore <code>www.</code></label>
+        <label class="chk"><input type="checkbox" id="ignoreTrailingSlash" /> ignore trailing slash</label>
+        <label class="chk"><input type="checkbox" id="ignoreBlank" /> skip new-tab / blank pages</label>
+      </div>
+
+      <div class="row">
+        <label for="keep">Keep</label>
+        <select id="keep">
+          <option value="first">The leftmost tab</option>
+          <option value="last">The rightmost tab</option>
+          <option value="mru">The most recently used tab</option>
+        </select>
+      </div>
+
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="protectPinned" /> never close pinned tabs</label>
+        <label class="chk"><input type="checkbox" id="protectGrouped" /> never close grouped tabs</label>
+        <label class="chk"><input type="checkbox" id="protectAudible" /> never close tabs playing audio</label>
+      </div>
+
+      <div class="actions">
+        <button id="find-dupes">Find duplicates</button>
+        <button id="close-dupes" class="danger" disabled>Close duplicates</button>
+      </div>
+
+      <ul id="dupe-list" class="dupe-list"></ul>
+    </section>
+
+    <section id="panel-reload" class="panel">
+      <div class="row">
+        <label for="selection">Reload</label>
+        <select id="selection"></select>
+      </div>
+
+      <div class="row" id="filter-row" hidden>
+        <select id="filterField" aria-label="Filter field"></select>
+        <select id="filterMode" aria-label="Filter comparison"></select>
+      </div>
+      <div class="row" id="filter-value-row" hidden>
+        <input id="filterValue" type="text" spellcheck="false" placeholder="github.com" aria-label="Filter value" />
+      </div>
+      <div class="row inline" id="filter-case" hidden>
+        <label class="chk"><input type="checkbox" id="caseSensitive" /> case sensitive</label>
+      </div>
+
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="bypassCache" /> bypass cache (hard reload)</label>
+        <label class="chk"><input type="checkbox" id="skipPinned" /> skip pinned tabs</label>
+        <label class="chk"><input type="checkbox" id="skipUnloaded" /> skip sleeping tabs</label>
+      </div>
+
+      <div class="row">
+        <label for="delayMs">Stagger</label>
+        <select id="delayMs">
+          <option value="0">All at once</option>
+          <option value="100">100 ms apart</option>
+          <option value="250">250 ms apart</option>
+          <option value="500">500 ms apart</option>
+          <option value="1000">1 s apart</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button id="reload" class="primary">Reload tabs</button>
+      </div>
+
+      <ul id="reload-list" class="dupe-list"></ul>
+    </section>
+
+    <footer class="status" id="status" role="status" aria-live="polite"></footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

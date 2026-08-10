@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Sorter",
+  "version": "1.0.0",
+  "description": "Sort tabs and tab groups by domain, hostname, URL, path, title, recency or a regular expression. Find and close duplicate tabs.",
+  "minimum_chrome_version": "104",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "contextMenus",
+    "favicon"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Tab Sorter",
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "sort-tabs": {
+      "description": "Sort tabs using the saved settings",
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      }
+    },
+    "close-duplicates": {
+      "description": "Close duplicate tabs using the saved settings",
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      }
+    },
+    "reload-tabs": {
+      "description": "Reload tabs using the saved selection",
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      }
+    },
+    "undo-sort": {
+      "description": "Undo the last sort"
+    }
+  }
+}

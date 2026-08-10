@@ -19,7 +19,7 @@ permanent install has to be signed through addons.mozilla.org.
 | --- | --- | --- |
 | Sorting, duplicates, reload, watch, themes | yes | yes |
 | Tab groups | yes | only where `tabGroups` exists — otherwise groups are simply absent, and every tab sorts as a loose one |
-| Favicons in the duplicate and reload lists | yes | no — the `_favicon/` endpoint is Chromium-only, so the icon slot stays empty |
+| Favicons in the duplicate and reload lists | yes | yes |
 | Editing shortcuts from the Config tab | opens the browser's shortcuts page | Firefox refuses to let an extension open `about:addons`, so the tab shows the route instead |
 
 One codebase covers both: `src/lib/browser.js` resolves `browser.*` where it exists and `chrome.*`
@@ -236,9 +236,17 @@ windows when the scope is set to all.
 | `tabGroups` | Read group names/colours and move groups |
 | `storage` | Persist settings, and hold the undo snapshot in session storage |
 | `contextMenus` | The right-click menu on the toolbar icon |
-| `favicon` | Show icons in the duplicates list from the browser's own cache (no network requests) |
 
-Nothing is sent anywhere: there are no host permissions, no content scripts and no network calls.
+There are no host permissions and no content scripts, and nothing about your browsing is ever sent
+anywhere.
+
+The one thing that leaves the machine is favicons. The duplicate and reload lists show each tab's
+own icon, loaded from the address the tab reports — so opening those lists can request an icon from
+a site you already have open, usually straight from the browser cache. The request carries no
+referrer. Chromium can serve these from its own cache with no request at all through a `_favicon/`
+endpoint, but that needs a `favicon` permission Firefox rejects as invalid, which would put a
+warning on every Firefox install; the shared path was the better trade. Delete the `img` from
+`tabRow()` in `src/popup.js` if you would rather have no requests at all.
 
 ## Development
 

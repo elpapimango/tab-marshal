@@ -8,8 +8,7 @@
     "tabs",
     "tabGroups",
     "storage",
-    "contextMenus",
-    "favicon"
+    "contextMenus"
   ],
   "background": {
     "service_worker": "src/background.js",

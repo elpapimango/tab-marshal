@@ -353,13 +353,15 @@ function tabRow(tab, trailing = '', tooltip = '') {
 
   const img = document.createElement('img');
   img.alt = '';
-  const icon = faviconUrl(tab.url);
+  // Don't tell the site which extension page asked for its icon.
+  img.referrerPolicy = 'no-referrer';
+  const icon = faviconUrl(tab);
   // An empty src is not "no image" — some engines resolve it against the
   // document and request the page itself. Leave the attribute off instead; the
   // slot keeps its width either way, so rows stay aligned.
   if (icon) {
     img.src = icon;
-    // Pages with nothing in the favicon cache would otherwise show a broken image.
+    // A site whose icon has moved or is unreachable would show a broken image.
     img.addEventListener('error', () => {
       img.style.visibility = 'hidden';
     });
@@ -433,16 +435,18 @@ async function onReload() {
 }
 
 /**
- * Favicons come from the browser's own cache, so no network request is made.
- * The `_favicon/` endpoint is Chromium-only; on Firefox there is nothing to
- * ask, so the row keeps its icon slot empty rather than requesting a 404.
+ * The icon the tab is already showing, as reported by the tabs API.
+ *
+ * Chromium's `_favicon/` endpoint would serve these from the browser's own
+ * cache with no request at all, but it needs a `favicon` permission that
+ * Firefox rejects outright — and a permission list only one engine accepts is
+ * worse than a cached image. Only web URLs and data: URIs are used; a
+ * browser-internal icon address will not load from an extension page.
  */
-function faviconUrl(pageUrl) {
-  if (isFirefox()) return '';
-  const url = new URL(api.runtime.getURL('/_favicon/'));
-  url.searchParams.set('pageUrl', pageUrl || '');
-  url.searchParams.set('size', '16');
-  return url.toString();
+function faviconUrl(tab) {
+  const src = tab && tab.favIconUrl;
+  if (!src) return '';
+  return /^(?:https?:|data:)/i.test(src) ? src : '';
 }
 
 async function focusTab(tab) {

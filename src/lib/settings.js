@@ -1,3 +1,4 @@
+import { api } from './browser.js';
 import { DEFAULT_SORT_OPTIONS } from './sorter.js';
 import { DEFAULT_DUPLICATE_OPTIONS } from './duplicates.js';
 import { DEFAULT_RELOAD_OPTIONS } from './select.js';
@@ -18,7 +19,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 export async function loadSettings() {
-  const stored = await chrome.storage.sync.get(KEY);
+  const stored = await api.storage.sync.get(KEY);
   const saved = stored[KEY] || {};
   return {
     ...DEFAULT_SETTINGS,
@@ -44,5 +45,5 @@ export async function saveSettings(settings) {
   delete clean.sort.__prepared;
   delete clean.reload.compiledFilter;
   delete clean.reload.__prepared;
-  await chrome.storage.sync.set({ [KEY]: clean });
+  await api.storage.sync.set({ [KEY]: clean });
 }

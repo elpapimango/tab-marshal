@@ -1,28 +1,28 @@
 /**
- * The chrome.* side of things: read the current window state, run the pure
+ * The browser-API side of things: read the current window state, run the pure
  * planner, then move tabs and groups into place.
  */
 
+import { api, hasTabGroups } from './browser.js';
 import { planSort, planFromSnapshot, prepareOptions, TAB_GROUP_ID_NONE } from './sorter.js';
 import { findDuplicates } from './duplicates.js';
 import { selectTabs, explainEmpty, prepareReloadOptions } from './select.js';
 import { planDuplicateResponse, planDoesSomething } from './watch.js';
 
 const UNDO_KEY = 'undoSnapshots';
-const hasTabGroups = typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined';
 
 async function getWindowIds(scope) {
   if (scope === 'all') {
-    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    const windows = await api.windows.getAll({ windowTypes: ['normal'] });
     return windows.map((w) => w.id);
   }
-  const win = await chrome.windows.getCurrent();
+  const win = await api.windows.getCurrent();
   return [win.id];
 }
 
 async function readWindow(windowId) {
-  const tabs = await chrome.tabs.query({ windowId });
-  const groups = hasTabGroups ? await chrome.tabGroups.query({ windowId }) : [];
+  const tabs = await api.tabs.query({ windowId });
+  const groups = hasTabGroups() ? await api.tabGroups.query({ windowId }) : [];
   return { tabs: tabs.sort((a, b) => a.index - b.index), groups };
 }
 
@@ -48,9 +48,9 @@ async function applyPlan(plan) {
       moves++;
       continue;
     }
-    if (hasTabGroups) {
+    if (hasTabGroups()) {
       try {
-        await chrome.tabGroups.move(block.groupId, { index: cursor });
+        await api.tabGroups.move(block.groupId, { index: cursor });
       } catch {
         // The group may have been dissolved between reading and applying;
         // moving the member tabs below still produces the right order.
@@ -67,7 +67,7 @@ async function applyPlan(plan) {
 
 async function moveTab(tabId, index) {
   try {
-    await chrome.tabs.move(tabId, { index });
+    await api.tabs.move(tabId, { index });
   } catch {
     // Tab closed mid-sort, or the user is dragging a tab right now. Skip it.
   }
@@ -80,9 +80,9 @@ async function saveUndoSnapshot(windowId, tabs) {
     pinned: t.pinned,
     groupId: t.groupId ?? TAB_GROUP_ID_NONE
   }));
-  const store = (await chrome.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
   store[windowId] = { savedAt: Date.now(), snapshot };
-  await chrome.storage.session.set({ [UNDO_KEY]: store });
+  await api.storage.session.set({ [UNDO_KEY]: store });
 }
 
 /** Sort every window in scope. Returns a short human-readable summary. */
@@ -106,32 +106,32 @@ export async function sortTabs(settings) {
 
 /** Restore the tab order captured before the most recent sort. */
 export async function undoSort(settings) {
-  const store = (await chrome.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
   const windowIds = (await getWindowIds(settings.scope)).filter((id) => store[id]);
   if (!windowIds.length) return { ok: false, message: 'Nothing to undo.' };
 
   for (const windowId of windowIds) {
     const { snapshot } = store[windowId];
-    const live = await chrome.tabs.query({ windowId });
+    const live = await api.tabs.query({ windowId });
     const liveIds = new Set(live.map((t) => t.id));
     const restorable = snapshot.filter((t) => liveIds.has(t.id));
     await applyPlan(planFromSnapshot(restorable));
     delete store[windowId];
   }
-  await chrome.storage.session.set({ [UNDO_KEY]: store });
+  await api.storage.session.set({ [UNDO_KEY]: store });
   return { ok: true, message: 'Restored the previous tab order.' };
 }
 
 export async function hasUndo(settings) {
-  const store = (await chrome.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
   const windowIds = await getWindowIds(settings.scope);
   return windowIds.some((id) => store[id]);
 }
 
 async function queryScopedTabs(scope) {
-  if (scope === 'all') return chrome.tabs.query({ windowType: 'normal' });
-  const win = await chrome.windows.getCurrent();
-  return chrome.tabs.query({ windowId: win.id });
+  if (scope === 'all') return api.tabs.query({ windowType: 'normal' });
+  const win = await api.windows.getCurrent();
+  return api.tabs.query({ windowId: win.id });
 }
 
 /** Find duplicates without touching anything. */
@@ -144,7 +144,7 @@ export async function previewDuplicates(settings) {
 export async function closeDuplicates(settings) {
   const { closeIds, closeCount } = await previewDuplicates(settings);
   if (!closeCount) return { ok: true, closed: 0, message: 'No duplicate tabs found.' };
-  await chrome.tabs.remove(closeIds);
+  await api.tabs.remove(closeIds);
   return {
     ok: true,
     closed: closeCount,
@@ -157,7 +157,7 @@ export async function closeDuplicates(settings) {
  * the scope is all windows — "the active tab's group" has to mean one group.
  */
 async function reloadContext() {
-  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [active] = await api.tabs.query({ active: true, currentWindow: true });
   return {
     activeTabId: active ? active.id : undefined,
     activeGroupId: active ? active.groupId ?? TAB_GROUP_ID_NONE : TAB_GROUP_ID_NONE
@@ -193,7 +193,7 @@ export async function reloadTabs(settings) {
   let skipped = 0;
   for (let i = 0; i < tabs.length; i++) {
     try {
-      await chrome.tabs.reload(tabs[i].id, { bypassCache: !!opts.bypassCache });
+      await api.tabs.reload(tabs[i].id, { bypassCache: !!opts.bypassCache });
       reloaded++;
     } catch {
       skipped++;
@@ -222,7 +222,7 @@ export async function respondToNewTab(tab, settings) {
   // Popup windows opened by web apps are not part of the tab strip the user
   // manages, so leave them alone.
   try {
-    const win = await chrome.windows.get(tab.windowId);
+    const win = await api.windows.get(tab.windowId);
     if (win.type !== 'normal') return { acted: false };
   } catch {
     return { acted: false };
@@ -230,8 +230,8 @@ export async function respondToNewTab(tab, settings) {
 
   const scoped =
     settings.scope === 'window'
-      ? await chrome.tabs.query({ windowId: tab.windowId })
-      : await chrome.tabs.query({ windowType: 'normal' });
+      ? await api.tabs.query({ windowId: tab.windowId })
+      : await api.tabs.query({ windowType: 'normal' });
 
   const windowTabCount = scoped.filter((t) => t.windowId === tab.windowId).length;
   const plan = planDuplicateResponse(
@@ -245,22 +245,22 @@ export async function respondToNewTab(tab, settings) {
   // Focus before closing so the strip never flashes an unrelated tab.
   if (plan.focusTabId) {
     try {
-      await chrome.tabs.update(plan.focusTabId, { active: true });
-      if (plan.focusWindowId != null) await chrome.windows.update(plan.focusWindowId, { focused: true });
+      await api.tabs.update(plan.focusTabId, { active: true });
+      if (plan.focusWindowId != null) await api.windows.update(plan.focusWindowId, { focused: true });
     } catch {
       /* the old tab vanished between the query and now */
     }
   }
   if (plan.reloadTabId) {
     try {
-      await chrome.tabs.reload(plan.reloadTabId);
+      await api.tabs.reload(plan.reloadTabId);
     } catch {
       /* not reloadable */
     }
   }
   if (plan.closeTabIds.length) {
     try {
-      await chrome.tabs.remove(plan.closeTabIds);
+      await api.tabs.remove(plan.closeTabIds);
     } catch {
       /* already closed */
     }

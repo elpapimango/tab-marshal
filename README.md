@@ -1,16 +1,32 @@
 # Tab Sorter
 
-A Microsoft Edge (Manifest V3) extension that sorts tabs and tab groups, finds and closes duplicate
-tabs (or stops them opening in the first place), and reloads tabs in bulk. No build step, no
-dependencies — load the folder as-is.
+A Manifest V3 browser extension that sorts tabs and tab groups, finds and closes duplicate tabs (or
+stops them opening in the first place), and reloads tabs in bulk. Runs on Edge, Chrome and Firefox
+from the same folder. No build step, no dependencies — load it as-is.
 
 ## Install (unpacked)
 
-1. Open `edge://extensions`.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked** and pick this folder.
+**Edge** — open `edge://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this
+folder. **Chrome** is the same at `chrome://extensions`.
 
-It also runs unchanged in Chrome (`chrome://extensions`) and other Chromium browsers.
+**Firefox** — open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and
+pick the `manifest.json` in this folder. Temporary add-ons are removed when Firefox closes; a
+permanent install has to be signed through addons.mozilla.org.
+
+## Browser support
+
+| | Edge / Chrome | Firefox |
+| --- | --- | --- |
+| Sorting, duplicates, reload, watch, themes | yes | yes |
+| Tab groups | yes | only where `tabGroups` exists — otherwise groups are simply absent, and every tab sorts as a loose one |
+| Favicons in the duplicate and reload lists | yes | no — the `_favicon/` endpoint is Chromium-only, so the icon slot stays empty |
+| Editing shortcuts from the Config tab | opens the browser's shortcuts page | Firefox refuses to let an extension open `about:addons`, so the tab shows the route instead |
+
+One codebase covers both: `src/lib/browser.js` resolves `browser.*` where it exists and `chrome.*`
+otherwise, and the manifest declares both `background.service_worker` (Chromium) and
+`background.scripts` (Firefox), which is Mozilla's documented cross-browser pattern. Each browser
+warns about the other's key and ignores it. Firefox needs an add-on ID for `storage.sync` to work at
+all, so `browser_specific_settings.gecko.id` is set; change it if you fork this.
 
 ## Sorting
 
@@ -230,7 +246,7 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-93 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+101 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
@@ -263,6 +279,7 @@ src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters (pure)
 src/lib/watch.js       when to judge a tab, and what to do about a duplicate (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
+src/lib/browser.js     browser.* / chrome.* namespace shim
 src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings
 test/                  node --test suites

@@ -1,3 +1,4 @@
+import { api, isFirefox } from './lib/browser.js';
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
 import { DUPLICATE_ACTIONS } from './lib/watch.js';
@@ -351,12 +352,18 @@ function tabRow(tab, trailing = '', tooltip = '') {
   li.title = tooltip || tab.title || tab.url || '';
 
   const img = document.createElement('img');
-  img.src = faviconUrl(tab.url);
   img.alt = '';
-  // Pages with nothing in the favicon cache would otherwise show a broken image.
-  img.addEventListener('error', () => {
-    img.style.visibility = 'hidden';
-  });
+  const icon = faviconUrl(tab.url);
+  // An empty src is not "no image" — some engines resolve it against the
+  // document and request the page itself. Leave the attribute off instead; the
+  // slot keeps its width either way, so rows stay aligned.
+  if (icon) {
+    img.src = icon;
+    // Pages with nothing in the favicon cache would otherwise show a broken image.
+    img.addEventListener('error', () => {
+      img.style.visibility = 'hidden';
+    });
+  }
   li.append(img);
 
   const text = document.createElement('div');
@@ -410,7 +417,7 @@ async function onReload() {
   setStatus('Reloading…');
   try {
     // The worker runs the loop so a staggered reload survives the popup closing.
-    const result = await chrome.runtime.sendMessage({ type: 'reload', settings });
+    const result = await api.runtime.sendMessage({ type: 'reload', settings });
     setStatus(result.message, result.ok === false);
   } catch {
     // No service worker (or it declined the message) — do it here instead.
@@ -425,9 +432,14 @@ async function onReload() {
   }
 }
 
-/** Favicons come from the browser's own cache, so no network request is made. */
+/**
+ * Favicons come from the browser's own cache, so no network request is made.
+ * The `_favicon/` endpoint is Chromium-only; on Firefox there is nothing to
+ * ask, so the row keeps its icon slot empty rather than requesting a 404.
+ */
 function faviconUrl(pageUrl) {
-  const url = new URL(chrome.runtime.getURL('/_favicon/'));
+  if (isFirefox()) return '';
+  const url = new URL(api.runtime.getURL('/_favicon/'));
   url.searchParams.set('pageUrl', pageUrl || '');
   url.searchParams.set('size', '16');
   return url.toString();
@@ -435,8 +447,8 @@ function faviconUrl(pageUrl) {
 
 async function focusTab(tab) {
   try {
-    await chrome.tabs.update(tab.id, { active: true });
-    await chrome.windows.update(tab.windowId, { focused: true });
+    await api.tabs.update(tab.id, { active: true });
+    await api.windows.update(tab.windowId, { focused: true });
     window.close();
   } catch {
     /* tab went away */
@@ -461,7 +473,7 @@ const COMMAND_LABELS = { _execute_action: 'Open the Tab Sorter popup' };
 async function renderShortcuts() {
   let commands = [];
   try {
-    commands = await chrome.commands.getAll();
+    commands = await api.commands.getAll();
   } catch {
     el.shortcutList.replaceChildren();
     return;
@@ -492,6 +504,7 @@ async function renderShortcuts() {
 }
 
 function shortcutsPageUrl() {
+  if (isFirefox()) return 'about:addons';
   // Edge and Chrome host the same page under their own scheme.
   return navigator.userAgent.includes('Edg/')
     ? 'edge://extensions/shortcuts'
@@ -500,8 +513,19 @@ function shortcutsPageUrl() {
 
 async function onOpenShortcuts() {
   const url = shortcutsPageUrl();
+
+  if (isFirefox()) {
+    // Firefox rejects tabs.create for privileged about: pages, and its shortcut
+    // screen has no address of its own — it is a panel inside about:addons.
+    // Attempting the call would only produce an error, so show the route.
+    el.shortcutsUrl.textContent = 'about:addons → ⚙ → Manage Extension Shortcuts';
+    el.shortcutsUrl.hidden = false;
+    setStatus('Firefox only allows shortcuts to be edited from about:addons.');
+    return;
+  }
+
   try {
-    await chrome.tabs.create({ url });
+    await api.tabs.create({ url });
     window.close();
   } catch {
     // Some builds refuse to let an extension open browser pages; show the

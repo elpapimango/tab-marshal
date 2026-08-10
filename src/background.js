@@ -1,3 +1,4 @@
+import { api } from './lib/browser.js';
 import { loadSettings } from './lib/settings.js';
 import { sortTabs, undoSort, closeDuplicates, reloadTabs, respondToNewTab } from './lib/apply.js';
 import { isBlankUrl } from './lib/duplicates.js';
@@ -16,17 +17,17 @@ const MENU = {
   undo: 'undo'
 };
 
-chrome.runtime.onInstalled.addListener(() => {
+api.runtime.onInstalled.addListener(() => {
   // An update reloads every tab's listeners; stay quiet through the churn.
   suppressWatch(5_000);
-  chrome.contextMenus.removeAll(() => {
-    const parent = chrome.contextMenus.create({
+  api.contextMenus.removeAll(() => {
+    const parent = api.contextMenus.create({
       id: 'tab-sorter-root',
       title: 'Tab Sorter',
       contexts: ['action']
     });
     const add = (id, title) =>
-      chrome.contextMenus.create({ id, title, parentId: parent, contexts: ['action'] });
+      api.contextMenus.create({ id, title, parentId: parent, contexts: ['action'] });
 
     add(MENU.sortSaved, 'Sort tabs (saved settings)');
     add(MENU.sortDomain, 'Sort by domain');
@@ -41,7 +42,7 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-chrome.contextMenus.onClicked.addListener(async (info) => {
+api.contextMenus.onClicked.addListener(async (info) => {
   const settings = await loadSettings();
   const oneOff = (primary, extra = {}) => ({
     ...settings,
@@ -75,7 +76,7 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   }
 });
 
-chrome.commands.onCommand.addListener(async (command) => {
+api.commands.onCommand.addListener(async (command) => {
   const settings = await loadSettings();
   if (command === 'sort-tabs') return run(() => sortTabs(settings));
   if (command === 'close-duplicates') return run(() => closeDuplicates(settings));
@@ -89,7 +90,7 @@ chrome.commands.onCommand.addListener(async (command) => {
  * loses focus, so the popup hands the work to the worker instead of running the
  * loop itself.
  */
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== 'reload') return false;
   reloadTabs(message.settings).then(sendResponse, (err) =>
     sendResponse({ ok: false, reloaded: 0, message: err.message || String(err) })
@@ -116,18 +117,18 @@ const PENDING_TTL_MS = 60_000;
  * quiet for a moment after the browser starts.
  */
 async function suppressWatch(ms) {
-  await chrome.storage.session.set({ [SUPPRESS_KEY]: Date.now() + ms });
+  await api.storage.session.set({ [SUPPRESS_KEY]: Date.now() + ms });
 }
 
 async function isSuppressed() {
-  const until = (await chrome.storage.session.get(SUPPRESS_KEY))[SUPPRESS_KEY] || 0;
+  const until = (await api.storage.session.get(SUPPRESS_KEY))[SUPPRESS_KEY] || 0;
   return Date.now() < until;
 }
 
-chrome.runtime.onStartup.addListener(() => suppressWatch(15_000));
+api.runtime.onStartup.addListener(() => suppressWatch(15_000));
 
 async function readPending() {
-  return (await chrome.storage.session.get(PENDING_KEY))[PENDING_KEY] || {};
+  return (await api.storage.session.get(PENDING_KEY))[PENDING_KEY] || {};
 }
 
 async function markPending(tabId) {
@@ -137,18 +138,18 @@ async function markPending(tabId) {
     if (at < cutoff) delete pending[id];
   }
   pending[tabId] = Date.now();
-  await chrome.storage.session.set({ [PENDING_KEY]: pending });
+  await api.storage.session.set({ [PENDING_KEY]: pending });
 }
 
 async function takePending(tabId) {
   const pending = await readPending();
   if (!pending[tabId]) return false;
   delete pending[tabId];
-  await chrome.storage.session.set({ [PENDING_KEY]: pending });
+  await api.storage.session.set({ [PENDING_KEY]: pending });
   return true;
 }
 
-chrome.tabs.onCreated.addListener(async (tab) => {
+api.tabs.onCreated.addListener(async (tab) => {
   if (await isSuppressed()) return;
   await markPending(tab.id);
   // Duplicating a tab or opening a bookmark in a new tab arrives with the URL
@@ -158,7 +159,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   }
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+api.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only a real URL change is interesting. A plain reload keeps the same URL
   // and so never lands here, which is what stops the reload issued by
   // "switch and reload" from re-triggering the watch.
@@ -167,7 +168,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   await evaluateTab(tabId, tab, wasNew ? 'new-tab' : 'navigation');
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
+api.tabs.onRemoved.addListener((tabId) => {
   takePending(tabId).catch(() => {});
 });
 
@@ -182,7 +183,7 @@ async function evaluateTab(tabId, tab, source) {
     const settings = await loadSettings();
     if (!shouldEvaluate(source, settings.watch)) return;
 
-    const fresh = tab && tab.url ? tab : await chrome.tabs.get(tabId);
+    const fresh = tab && tab.url ? tab : await api.tabs.get(tabId);
     const { acted } = await respondToNewTab(fresh, settings);
     if (acted) await flashBadge('dup', '#0f6cbd');
   } catch (err) {
@@ -206,8 +207,8 @@ async function run(fn) {
 
 let badgeTimer = null;
 async function flashBadge(text, color) {
-  await chrome.action.setBadgeBackgroundColor({ color });
-  await chrome.action.setBadgeText({ text });
+  await api.action.setBadgeBackgroundColor({ color });
+  await api.action.setBadgeText({ text });
   if (badgeTimer) clearTimeout(badgeTimer);
-  badgeTimer = setTimeout(() => chrome.action.setBadgeText({ text: '' }), 1800);
+  badgeTimer = setTimeout(() => api.action.setBadgeText({ text: '' }), 1800);
 }

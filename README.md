@@ -181,3 +181,7 @@ tools/make-icons.mjs   PNG icon generator
 cursor, so everything left of the cursor is already final and no move disturbs a placed tab. Group
 members are only ever rearranged inside their own range, which is what keeps groups contiguous.
 Sorting is idempotent — running it twice produces the same order.
+
+## License
+
+[MIT](LICENSE) © 2026 Mattias Holmertz

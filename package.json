@@ -2,6 +2,7 @@
   "name": "tab-sorter",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Microsoft Edge extension that sorts tabs and tab groups and closes duplicate tabs.",
   "scripts": {

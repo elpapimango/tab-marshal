@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { planDuplicateResponse, planDoesSomething, DUPLICATE_ACTIONS } from '../src/lib/watch.js';
+import {
+  planDuplicateResponse,
+  planDoesSomething,
+  shouldEvaluate,
+  DUPLICATE_ACTIONS
+} from '../src/lib/watch.js';
 
 const NONE = -1;
 
@@ -137,6 +142,51 @@ test('otherwise the leftmost duplicate wins', () => {
 test('the new tab is never treated as its own duplicate', () => {
   const p = plan('close-new', NEWTAB, [NEWTAB]);
   assert.equal(p.matched, false);
+});
+
+test('existing-tab navigation is only judged when opted into', () => {
+  const on = { onDuplicate: 'close-new' };
+  assert.equal(shouldEvaluate('new-tab', on), true);
+  assert.equal(shouldEvaluate('navigation', on), false, 'off by default');
+
+  const both = { onDuplicate: 'close-new', includeNavigation: true };
+  assert.equal(shouldEvaluate('new-tab', both), true);
+  assert.equal(shouldEvaluate('navigation', both), true);
+});
+
+test('nothing is judged while the action is ignore', () => {
+  for (const source of ['new-tab', 'navigation']) {
+    assert.equal(shouldEvaluate(source, { onDuplicate: 'ignore', includeNavigation: true }), false);
+    assert.equal(shouldEvaluate(source, {}), false, 'the default is off');
+  }
+});
+
+test('a protected tab that navigates is never the one closed', () => {
+  // Only reachable once existing tabs are watched: the tab that navigated is
+  // pinned, and pinned tabs are protected by default.
+  const navigated = tab(9, 'https://example.com/docs', { pinned: true, index: 9 });
+  for (const action of ['close-new', 'focus-old', 'focus-old-reload']) {
+    const p = plan(action, navigated);
+    assert.deepEqual(p.closeTabIds, [], `${action} closed a pinned tab`);
+    assert.equal(p.skipped, 'protected-new');
+  }
+});
+
+test('switching still works when the navigating tab is protected', () => {
+  const navigated = tab(9, 'https://example.com/docs', { pinned: true, index: 9 });
+  const p = plan('focus-old-reload', navigated);
+  assert.equal(p.focusTabId, 1);
+  assert.equal(p.reloadTabId, 1);
+  assert.equal(planDoesSomething(p), true);
+});
+
+test('protection of the navigating tab follows the same checkboxes', () => {
+  const grouped = tab(9, 'https://example.com/docs', { groupId: 3, index: 9 });
+  // protectGrouped is off by default, so the tab is closable...
+  assert.deepEqual(plan('close-new', grouped).closeTabIds, [9]);
+  // ...and honoured when switched on.
+  const p = plan('close-new', grouped, OPEN, CONTEXT, { protectGrouped: true });
+  assert.deepEqual(p.closeTabIds, []);
 });
 
 test('every offered action produces a usable plan', () => {

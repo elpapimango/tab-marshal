@@ -1,6 +1,7 @@
 import { loadSettings } from './lib/settings.js';
 import { sortTabs, undoSort, closeDuplicates, reloadTabs, respondToNewTab } from './lib/apply.js';
 import { isBlankUrl } from './lib/duplicates.js';
+import { shouldEvaluate } from './lib/watch.js';
 
 const MENU = {
   sortSaved: 'sort-saved',
@@ -152,26 +153,34 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   await markPending(tab.id);
   // Duplicating a tab or opening a bookmark in a new tab arrives with the URL
   // already set, so there may never be an onUpdated to wait for.
-  if (tab.url && !isBlankUrl(tab.url)) await evaluateNewTab(tab.id, tab);
+  if (tab.url && !isBlankUrl(tab.url)) {
+    if (await takePending(tab.id)) await evaluateTab(tab.id, tab, 'new-tab');
+  }
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only a real URL change is interesting. A plain reload keeps the same URL
+  // and so never lands here, which is what stops the reload issued by
+  // "switch and reload" from re-triggering the watch.
   if (!changeInfo.url) return;
-  await evaluateNewTab(tabId, tab);
+  const wasNew = await takePending(tabId);
+  await evaluateTab(tabId, tab, wasNew ? 'new-tab' : 'navigation');
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   takePending(tabId).catch(() => {});
 });
 
-/** Runs at most once per tab: the first committed URL after it was created. */
-async function evaluateNewTab(tabId, tab) {
+/**
+ * Judge one URL change. New tabs are judged once, on their first committed
+ * URL; existing tabs are only judged if the user opted into that.
+ */
+async function evaluateTab(tabId, tab, source) {
   try {
-    if (!(await takePending(tabId))) return;
     if (await isSuppressed()) return;
 
     const settings = await loadSettings();
-    if (!settings.watch || settings.watch.onDuplicate === 'ignore') return;
+    if (!shouldEvaluate(source, settings.watch)) return;
 
     const fresh = tab && tab.url ? tab : await chrome.tabs.get(tabId);
     const { acted } = await respondToNewTab(fresh, settings);

@@ -42,6 +42,8 @@ const el = {
   protectGrouped: $('protectGrouped'),
   protectAudible: $('protectAudible'),
   onDuplicate: $('onDuplicate'),
+  includeNavigation: $('includeNavigation'),
+  watchHint: $('watch-hint'),
   findDupes: $('find-dupes'),
   closeDupes: $('close-dupes'),
   dupeList: $('dupe-list'),
@@ -152,6 +154,7 @@ function applySettingsToUi() {
   el.protectGrouped.checked = !!d.protectGrouped;
   el.protectAudible.checked = !!d.protectAudible;
   el.onDuplicate.value = w.onDuplicate;
+  el.includeNavigation.checked = !!w.includeNavigation;
 
   el.selection.value = r.selection;
   el.filterField.value = r.field;
@@ -192,7 +195,8 @@ function readUi() {
       protectAudible: el.protectAudible.checked
     },
     watch: {
-      onDuplicate: el.onDuplicate.value
+      onDuplicate: el.onDuplicate.value,
+      includeNavigation: el.includeNavigation.checked
     },
     reload: {
       selection: el.selection.value,
@@ -215,6 +219,15 @@ function refreshConditionalUi() {
   el.regexHint.hidden = !usesRegex;
   // Group placement only means anything when whole blocks may be reordered.
   el.groupBox.disabled = el.target.value !== 'all';
+
+  // Nothing under the watch matters while it is set to allow duplicates.
+  const watching = el.onDuplicate.value !== 'ignore';
+  el.includeNavigation.disabled = !watching;
+  el.watchHint.textContent = !watching
+    ? 'Duplicates are allowed; nothing happens automatically.'
+    : el.includeNavigation.checked
+      ? 'Every tab is judged each time it navigates, using the match and protection settings above.'
+      : 'Each new tab is judged once, on the first page it loads, using the settings above.';
 
   const usesFilter = el.selection.value === 'filter';
   el.filterRow.hidden = !usesFilter;

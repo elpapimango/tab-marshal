@@ -18,8 +18,25 @@ export const DUPLICATE_ACTIONS = [
 
 export const DEFAULT_WATCH_OPTIONS = {
   /** A DUPLICATE_ACTIONS id. Off by default — this closes tabs on its own. */
-  onDuplicate: 'ignore'
+  onDuplicate: 'ignore',
+  /**
+   * Also judge existing tabs each time they navigate, not just new ones on
+   * their first page.
+   */
+  includeNavigation: false
 };
+
+/**
+ * Whether a URL change should be judged at all.
+ *
+ * @param {'new-tab'|'navigation'} source where the URL change came from
+ */
+export function shouldEvaluate(source, watchOptions = {}) {
+  const opts = { ...DEFAULT_WATCH_OPTIONS, ...watchOptions };
+  if (opts.onDuplicate === 'ignore') return false;
+  if (source === 'navigation') return !!opts.includeNavigation;
+  return true;
+}
 
 const NOTHING = Object.freeze({
   matched: false,
@@ -67,11 +84,15 @@ export function planDuplicateResponse(newTab, otherTabs, options = {}, context =
     return result({ matched: true, oldTabId: closable.id, closeTabIds: [closable.id] });
   }
 
-  // Everything else closes the new tab. Closing the only tab in a window
-  // closes the window, which is a bigger surprise than a stray duplicate.
+  // Everything else closes the tab that just navigated. Two reasons not to:
+  // it is protected (which matters once existing tabs are watched — the tab
+  // that navigated may be pinned), or it is the only tab in its window, and
+  // closing it would take the window with it.
+  const newIsProtected = isProtectedTab(newTab, match);
   const soleTabInWindow = (context.windowTabCount ?? 0) <= 1;
-  const closeTabIds = soleTabInWindow ? [] : [newTab.id];
-  const skipped = soleTabInWindow ? 'sole-tab' : null;
+  const blocked = newIsProtected || soleTabInWindow;
+  const closeTabIds = blocked ? [] : [newTab.id];
+  const skipped = newIsProtected ? 'protected-new' : soleTabInWindow ? 'sole-tab' : null;
 
   if (action === 'close-new') {
     return result({ matched: true, oldTabId: old.id, closeTabIds, skipped });

@@ -80,18 +80,32 @@ re-runs detection and closes them, so nothing opened in between gets closed by s
 Closing tabs cannot be undone from within the extension — `Ctrl+Shift+T` reopens them one at a
 time.
 
-### Watching new tabs
+### Watching for duplicates
 
-Instead of cleaning up after the fact, the extension can check each tab as it opens and act if it
+Instead of cleaning up after the fact, the extension can check tabs as they load and act if one
 duplicates something already open:
 
 | Action | Effect |
 | --- | --- |
 | Nothing — allow duplicates | **Default.** The watch is off |
 | Close the new tab | The duplicate never sticks around; the old tab is not focused |
-| Close the old tab, keep the new | The new tab takes the old one's place |
+| Close the old tab, keep the new | The tab that just loaded takes the old one's place |
 | Switch to the old tab, close the new | Jump to the copy you already had |
 | Switch to the old tab, reload, close the new | Same, plus a refresh |
+
+"New" here means whichever tab just loaded the duplicate URL.
+
+By default only **new** tabs are judged, once each, on the first URL they commit — so navigating a
+tab you have been using for an hour is never second-guessed. Ticking **also when an existing tab
+navigates** widens that to every tab, every time its URL changes.
+
+That wider mode is worth understanding before enabling it:
+
+- Typing a URL into the tab you are looking at, or following a link in it, now counts. With *Close
+  the new tab* that closes the tab in front of you and leaves you elsewhere; *Switch to the old tab*
+  is usually the setting you want here.
+- Going back or forward to a page you have open elsewhere counts too.
+- Single-page apps rewrite their URL as you move around inside them, and each rewrite is judged.
 
 Matching uses the same settings as manual duplicate detection — match mode, `www.`/trailing-slash
 normalisation, and the protection checkboxes. Scope applies too: *This window* only compares against
@@ -99,17 +113,19 @@ tabs in the same window.
 
 Because this closes tabs on its own, it has guard rails:
 
-- **Off by default**, and each tab is judged exactly once, on the first URL it commits. Navigating a
-  tab you've been using for an hour is never second-guessed.
-- **A protected old tab is never closed.** If every duplicate is pinned, grouped or playing audio
-  (per your checkboxes), nothing happens at all — the extension will not quietly close the *new* tab
-  instead, since that is the opposite of what "close the old one" asked for.
+- **Off by default.**
+- **A protected tab is never closed** — neither the old one nor the one that just navigated. If
+  every duplicate is pinned, grouped or playing audio (per your checkboxes), nothing happens at all;
+  the extension will not quietly close the *other* tab instead, since that is the opposite of what
+  was asked for.
 - **A tab alone in its window is never closed**, because that would close the window. The switch
   still happens; only the close is skipped.
 - **Session restore is skipped.** Reopening a saved session recreates every tab at once, duplicates
   included, so the watch stays quiet for 15 seconds after the browser starts rather than deleting
   tabs you deliberately saved.
 - Tabs in popup windows opened by web apps are ignored.
+- The reload issued by *switch and reload* cannot re-trigger the watch: only a genuine URL **change**
+  is judged, and a reload keeps the same URL.
 
 When the watch acts, the toolbar badge briefly shows `dup` so a tab never just disappears without
 explanation. Note that explicitly duplicating a tab counts as a new tab and will be caught — that
@@ -211,7 +227,7 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-86 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+91 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
@@ -242,7 +258,7 @@ src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters (pure)
-src/lib/watch.js       what to do about a duplicate new tab (pure)
+src/lib/watch.js       when to judge a tab, and what to do about a duplicate (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
 src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings

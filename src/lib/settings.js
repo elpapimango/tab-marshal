@@ -1,12 +1,15 @@
 import { DEFAULT_SORT_OPTIONS } from './sorter.js';
 import { DEFAULT_DUPLICATE_OPTIONS } from './duplicates.js';
 import { DEFAULT_RELOAD_OPTIONS } from './select.js';
+import { DEFAULT_THEME } from './theme.js';
 
 const KEY = 'tabSorterSettings';
 
 export const DEFAULT_SETTINGS = {
   /** 'window' | 'all' — which windows an action applies to. */
   scope: 'window',
+  /** A THEMES id from lib/theme.js. */
+  theme: DEFAULT_THEME,
   sort: { ...DEFAULT_SORT_OPTIONS },
   duplicates: { ...DEFAULT_DUPLICATE_OPTIONS },
   reload: { ...DEFAULT_RELOAD_OPTIONS }
@@ -27,6 +30,7 @@ export async function loadSettings() {
 export async function saveSettings(settings) {
   const clean = {
     scope: settings.scope,
+    theme: settings.theme,
     sort: { ...settings.sort },
     duplicates: { ...settings.duplicates },
     reload: { ...settings.reload }

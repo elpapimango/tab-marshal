@@ -103,19 +103,46 @@ Options:
 Tabs the browser refuses to reload (some internal pages) are reported as skipped rather than
 failing the run.
 
-## Keyboard shortcuts and menu
+## Config
+
+### Theme
+
+| Group | Options |
+| --- | --- |
+| Default | Match browser, Light, Dark |
+| Catppuccin | Match browser (Latte / Mocha), Latte, Frappé, Macchiato, Mocha |
+
+"Match browser" follows `prefers-color-scheme`, and updates live if the browser or OS theme changes
+while the popup is open. The Catppuccin flavours use the official palettes.
+
+The chosen theme is resolved to a concrete palette in JS and stamped on `<html data-theme>`, so
+`popup.css` has one plain block per palette instead of duplicated media queries. The resolved value
+is mirrored into `localStorage` and re-applied by `src/theme-boot.js` — a small synchronous script
+in `<head>` — so opening the popup on a dark theme doesn't flash white first.
+
+### Keyboard shortcuts
+
+The Config tab lists every command with its current binding, read live from `chrome.commands`.
 
 | Action | Default |
 | --- | --- |
+| Open the Tab Sorter popup | unassigned |
 | Sort tabs with saved settings | `Alt+Shift+S` |
 | Close duplicate tabs | `Alt+Shift+D` |
 | Reload tabs with saved selection | `Alt+Shift+R` |
 | Undo last sort | unassigned |
 
-Rebind at `edge://extensions/shortcuts`. Right-clicking the toolbar icon offers the saved sort plus
-one-off sorts by domain, hostname, URL, title and last accessed, the saved reload selection, and
-"reload all tabs". Shortcut and menu actions have no popup to report into, so the result flashes on
-the toolbar badge (`✓` / `!`).
+**Bindings can only be changed on the browser's own page.** `chrome.commands` is read-only —
+extensions can see their shortcuts but not set them, so "Change shortcuts…" just opens
+`edge://extensions/shortcuts` (`chrome://…` on Chrome). If the browser refuses to let the extension
+open that page, the address is shown for copying instead.
+
+## Menu
+
+Right-clicking the toolbar icon offers the saved sort, one-off sorts by domain, hostname, URL, title
+and last accessed, the saved reload selection, "reload all tabs", closing duplicates, and undo.
+Shortcut and menu actions have no popup to report into, so the result flashes on the toolbar badge
+(`✓` / `!`).
 
 ## Scope
 
@@ -141,11 +168,12 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-50 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, and
-`apply.js` driven against a fake tab strip (group contiguity, idempotence, undo, closing
-duplicates, reloading). The logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`
-and `src/lib/select.js` is pure — it takes plain objects and returns a result — so it runs under
-plain Node with no browser stubs. `src/lib/apply.js` is the only place that talks to `chrome.*`.
+59 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, theme
+resolution, settings round-trips, and `apply.js` driven against a fake tab strip (group contiguity,
+idempotence, undo, closing duplicates, reloading). The logic in `src/lib/keys.js`,
+`src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js` and `src/lib/theme.js` is pure —
+it takes plain objects and returns a result — so it runs under plain Node with no browser stubs.
+`src/lib/apply.js` is the only place that talks to `chrome.*`.
 
 Icons are generated rather than checked in as hand-made binaries:
 
@@ -165,10 +193,12 @@ Compress-Archive -Path manifest.json,icons,src -DestinationPath tab-sorter.zip -
 manifest.json          MV3 manifest
 src/background.js      service worker: commands, context menu, staggered reloads
 src/popup.{html,css,js} the UI
+src/theme-boot.js      applies the cached theme before first paint
 src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters (pure)
+src/lib/theme.js       theme list and light/dark resolution (pure)
 src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings
 test/                  node --test suites

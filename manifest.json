@@ -32,6 +32,9 @@
     "128": "icons/icon128.png"
   },
   "commands": {
+    "_execute_action": {
+      "description": "Open the Tab Sorter popup"
+    },
     "sort-tabs": {
       "description": "Sort tabs using the saved settings",
       "suggested_key": {

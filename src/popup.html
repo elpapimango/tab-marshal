@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <title>Tab Sorter</title>
     <link rel="stylesheet" href="popup.css" />
+    <!-- Runs before first paint so the popup doesn't flash the wrong theme. -->
+    <script src="theme-boot.js"></script>
   </head>
   <body>
     <header class="head">
@@ -21,6 +23,7 @@
       <button class="tab-btn is-active" data-panel="panel-sort" role="tab">Sort</button>
       <button class="tab-btn" data-panel="panel-dupes" role="tab">Duplicates</button>
       <button class="tab-btn" data-panel="panel-reload" role="tab">Reload</button>
+      <button class="tab-btn" data-panel="panel-config" role="tab">Config</button>
     </nav>
 
     <section id="panel-sort" class="panel is-active">
@@ -168,6 +171,26 @@
       </div>
 
       <ul id="reload-list" class="dupe-list"></ul>
+    </section>
+
+    <section id="panel-config" class="panel">
+      <div class="row">
+        <label for="theme">Theme</label>
+        <select id="theme"></select>
+      </div>
+
+      <fieldset class="group-box">
+        <legend>Keyboard shortcuts</legend>
+        <ul id="shortcut-list" class="shortcuts"></ul>
+        <p class="hint">
+          Browsers reserve shortcut editing for their own settings page — an extension can read its
+          bindings but not change them.
+        </p>
+        <div class="actions">
+          <button id="open-shortcuts">Change shortcuts…</button>
+        </div>
+        <p class="hint mono" id="shortcuts-url" hidden></p>
+      </fieldset>
     </section>
 
     <footer class="status" id="status" role="status" aria-live="polite"></footer>

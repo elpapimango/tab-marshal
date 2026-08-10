@@ -1,28 +1,171 @@
+/*
+ * Palettes are defined once here as literals; the [data-theme] blocks below
+ * only map them onto the nine variables the UI actually uses. popup.js resolves
+ * "match browser" to a concrete theme and stamps it on <html>, so no palette
+ * needs to be repeated inside a media query.
+ */
 :root {
-  color-scheme: light dark;
-  --bg: #ffffff;
-  --fg: #1b1b1f;
-  --muted: #5f6368;
-  --line: #dcdce1;
-  --field: #ffffff;
-  --accent: #0f6cbd;
-  --accent-fg: #ffffff;
-  --danger: #c5221f;
-  --hover: #f2f3f5;
+  /* Default light */
+  --lt-bg: #ffffff;
+  --lt-fg: #1b1b1f;
+  --lt-muted: #5f6368;
+  --lt-line: #dcdce1;
+  --lt-field: #ffffff;
+  --lt-accent: #0f6cbd;
+  --lt-accent-fg: #ffffff;
+  --lt-danger: #c5221f;
+  --lt-hover: #f2f3f5;
+
+  /* Default dark */
+  --dk-bg: #202124;
+  --dk-fg: #e8eaed;
+  --dk-muted: #9aa0a6;
+  --dk-line: #3c4043;
+  --dk-field: #292a2d;
+  --dk-accent: #4aa1f0;
+  --dk-accent-fg: #10233a;
+  --dk-danger: #f28b82;
+  --dk-hover: #2d2e31;
+
+  /* Catppuccin Latte */
+  --latte-bg: #eff1f5;
+  --latte-fg: #4c4f69;
+  --latte-muted: #6c6f85;
+  --latte-line: #bcc0cc;
+  --latte-field: #e6e9ef;
+  --latte-accent: #1e66f5;
+  --latte-accent-fg: #eff1f5;
+  --latte-danger: #d20f39;
+  --latte-hover: #ccd0da;
+
+  /* Catppuccin Frappé */
+  --frappe-bg: #303446;
+  --frappe-fg: #c6d0f5;
+  --frappe-muted: #a5adce;
+  --frappe-line: #51576d;
+  --frappe-field: #292c3c;
+  --frappe-accent: #8caaee;
+  --frappe-accent-fg: #232634;
+  --frappe-danger: #e78284;
+  --frappe-hover: #414559;
+
+  /* Catppuccin Macchiato */
+  --macchiato-bg: #24273a;
+  --macchiato-fg: #cad3f5;
+  --macchiato-muted: #a5adcb;
+  --macchiato-line: #494d64;
+  --macchiato-field: #1e2030;
+  --macchiato-accent: #8aadf4;
+  --macchiato-accent-fg: #181926;
+  --macchiato-danger: #ed8796;
+  --macchiato-hover: #363a4f;
+
+  /* Catppuccin Mocha */
+  --mocha-bg: #1e1e2e;
+  --mocha-fg: #cdd6f4;
+  --mocha-muted: #a6adc8;
+  --mocha-line: #45475a;
+  --mocha-field: #181825;
+  --mocha-accent: #89b4fa;
+  --mocha-accent-fg: #11111b;
+  --mocha-danger: #f38ba8;
+  --mocha-hover: #313244;
 }
 
+/* Light is the resting state, including before the boot script runs. */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: var(--lt-bg);
+  --fg: var(--lt-fg);
+  --muted: var(--lt-muted);
+  --line: var(--lt-line);
+  --field: var(--lt-field);
+  --accent: var(--lt-accent);
+  --accent-fg: var(--lt-accent-fg);
+  --danger: var(--lt-danger);
+  --hover: var(--lt-hover);
+}
+
+/* Only reached on the very first open, before a theme has been cached. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #202124;
-    --fg: #e8eaed;
-    --muted: #9aa0a6;
-    --line: #3c4043;
-    --field: #292a2d;
-    --accent: #4aa1f0;
-    --accent-fg: #10233a;
-    --danger: #f28b82;
-    --hover: #2d2e31;
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: var(--dk-bg);
+    --fg: var(--dk-fg);
+    --muted: var(--dk-muted);
+    --line: var(--dk-line);
+    --field: var(--dk-field);
+    --accent: var(--dk-accent);
+    --accent-fg: var(--dk-accent-fg);
+    --danger: var(--dk-danger);
+    --hover: var(--dk-hover);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: var(--dk-bg);
+  --fg: var(--dk-fg);
+  --muted: var(--dk-muted);
+  --line: var(--dk-line);
+  --field: var(--dk-field);
+  --accent: var(--dk-accent);
+  --accent-fg: var(--dk-accent-fg);
+  --danger: var(--dk-danger);
+  --hover: var(--dk-hover);
+}
+
+:root[data-theme='ctp-latte'] {
+  color-scheme: light;
+  --bg: var(--latte-bg);
+  --fg: var(--latte-fg);
+  --muted: var(--latte-muted);
+  --line: var(--latte-line);
+  --field: var(--latte-field);
+  --accent: var(--latte-accent);
+  --accent-fg: var(--latte-accent-fg);
+  --danger: var(--latte-danger);
+  --hover: var(--latte-hover);
+}
+
+:root[data-theme='ctp-frappe'] {
+  color-scheme: dark;
+  --bg: var(--frappe-bg);
+  --fg: var(--frappe-fg);
+  --muted: var(--frappe-muted);
+  --line: var(--frappe-line);
+  --field: var(--frappe-field);
+  --accent: var(--frappe-accent);
+  --accent-fg: var(--frappe-accent-fg);
+  --danger: var(--frappe-danger);
+  --hover: var(--frappe-hover);
+}
+
+:root[data-theme='ctp-macchiato'] {
+  color-scheme: dark;
+  --bg: var(--macchiato-bg);
+  --fg: var(--macchiato-fg);
+  --muted: var(--macchiato-muted);
+  --line: var(--macchiato-line);
+  --field: var(--macchiato-field);
+  --accent: var(--macchiato-accent);
+  --accent-fg: var(--macchiato-accent-fg);
+  --danger: var(--macchiato-danger);
+  --hover: var(--macchiato-hover);
+}
+
+:root[data-theme='ctp-mocha'] {
+  color-scheme: dark;
+  --bg: var(--mocha-bg);
+  --fg: var(--mocha-fg);
+  --muted: var(--mocha-muted);
+  --line: var(--mocha-line);
+  --field: var(--mocha-field);
+  --accent: var(--mocha-accent);
+  --accent-fg: var(--mocha-accent-fg);
+  --danger: var(--mocha-danger);
+  --hover: var(--mocha-hover);
 }
 
 * {
@@ -77,12 +220,14 @@ body {
   border: 0;
   background: none;
   color: var(--muted);
-  padding: 7px 10px;
+  padding: 7px 7px;
   font: inherit;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {
@@ -298,6 +443,57 @@ button.danger:not(:disabled) {
   color: var(--muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.shortcuts {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.shortcuts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.shortcuts li:last-child {
+  border-bottom: 0;
+}
+
+.shortcuts .shortcut-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcuts kbd {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--field);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.shortcuts .unset {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.hint.mono {
+  user-select: all;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  word-break: break-all;
 }
 
 .status {

@@ -1,6 +1,7 @@
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
 import { SELECTIONS, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
+import { THEMES, resolveTheme } from './lib/theme.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 import {
   sortTabs,
@@ -56,11 +57,16 @@ const el = {
   delayMs: $('delayMs'),
   reload: $('reload'),
   reloadList: $('reload-list'),
+  theme: $('theme'),
+  shortcutList: $('shortcut-list'),
+  openShortcuts: $('open-shortcuts'),
+  shortcutsUrl: $('shortcuts-url'),
   status: $('status')
 };
 
 let settings;
 let pendingCloseIds = [];
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 init();
 
@@ -71,11 +77,38 @@ async function init() {
   fillOptions(el.selection, SELECTIONS);
   fillOptions(el.filterField, FILTER_FIELDS);
   fillOptions(el.filterMode, FILTER_MODES);
+  fillGroupedOptions(el.theme, THEMES);
 
   settings = await loadSettings();
+  applyTheme(settings.theme);
   applySettingsToUi();
   wireEvents();
+  await renderShortcuts();
   el.undo.disabled = !(await hasUndo(settings));
+}
+
+/** Options split into <optgroup>s by their `group` property. */
+function fillGroupedOptions(select, items) {
+  const groups = new Map();
+  for (const item of items) {
+    if (!groups.has(item.group)) groups.set(item.group, []);
+    groups.get(item.group).push(item);
+  }
+  select.replaceChildren(
+    ...[...groups].map(([label, members]) => {
+      const group = document.createElement('optgroup');
+      group.label = label;
+      group.append(
+        ...members.map((m) => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.label;
+          return opt;
+        })
+      );
+      return group;
+    })
+  );
 }
 
 function fillOptions(select, items) {
@@ -95,6 +128,7 @@ function applySettingsToUi() {
   const r = settings.reload;
 
   el.scope.value = settings.scope;
+  el.theme.value = settings.theme;
   el.primary.value = s.primary;
   el.secondary.value = s.secondary || 'none';
   el.direction.value = s.descending ? 'desc' : 'asc';
@@ -130,6 +164,7 @@ function applySettingsToUi() {
 function readUi() {
   return {
     scope: el.scope.value,
+    theme: el.theme.value,
     sort: {
       primary: el.primary.value,
       secondary: el.secondary.value,
@@ -189,6 +224,8 @@ function wireEvents() {
       });
       setStatus('');
       if (btn.dataset.panel === 'panel-reload') refreshReloadPreview();
+      // Shortcuts may have been rebound since the popup opened.
+      if (btn.dataset.panel === 'panel-config') renderShortcuts();
     });
   });
 
@@ -203,10 +240,15 @@ function wireEvents() {
   el.findDupes.addEventListener('click', onFindDuplicates);
   el.closeDupes.addEventListener('click', onCloseDuplicates);
   el.reload.addEventListener('click', onReload);
+  el.openShortcuts.addEventListener('click', onOpenShortcuts);
+
+  // Keep "match browser" honest if the OS flips while the popup is open.
+  darkQuery.addEventListener('change', () => applyTheme(settings.theme));
 }
 
 async function onSettingChanged() {
   settings = readUi();
+  applyTheme(settings.theme);
   refreshConditionalUi();
   clearDuplicatePreview();
   await saveSettings(settings);
@@ -377,6 +419,75 @@ async function focusTab(tab) {
     window.close();
   } catch {
     /* tab went away */
+  }
+}
+
+/** Resolve "match browser" to a concrete palette and stamp it on <html>. */
+function applyTheme(choice) {
+  const resolved = resolveTheme(choice, darkQuery.matches);
+  document.documentElement.dataset.theme = resolved;
+  try {
+    // Read back by theme-boot.js on the next open, before the first paint.
+    localStorage.setItem('tabSorterTheme', resolved);
+  } catch {
+    /* storage unavailable; the theme still applies for this session */
+  }
+}
+
+const COMMAND_LABELS = { _execute_action: 'Open the Tab Sorter popup' };
+
+/** Shortcuts are read-only here — only the browser's own page can rebind them. */
+async function renderShortcuts() {
+  let commands = [];
+  try {
+    commands = await chrome.commands.getAll();
+  } catch {
+    el.shortcutList.replaceChildren();
+    return;
+  }
+
+  el.shortcutList.replaceChildren(
+    ...commands.map((command) => {
+      const li = document.createElement('li');
+
+      const name = document.createElement('span');
+      name.className = 'shortcut-name';
+      name.textContent = COMMAND_LABELS[command.name] || command.description || command.name;
+      li.append(name);
+
+      if (command.shortcut) {
+        const key = document.createElement('kbd');
+        key.textContent = command.shortcut;
+        li.append(key);
+      } else {
+        const unset = document.createElement('span');
+        unset.className = 'unset';
+        unset.textContent = 'not set';
+        li.append(unset);
+      }
+      return li;
+    })
+  );
+}
+
+function shortcutsPageUrl() {
+  // Edge and Chrome host the same page under their own scheme.
+  return navigator.userAgent.includes('Edg/')
+    ? 'edge://extensions/shortcuts'
+    : 'chrome://extensions/shortcuts';
+}
+
+async function onOpenShortcuts() {
+  const url = shortcutsPageUrl();
+  try {
+    await chrome.tabs.create({ url });
+    window.close();
+  } catch {
+    // Some builds refuse to let an extension open browser pages; show the
+    // address so it can be pasted instead.
+    el.shortcutsUrl.textContent = url;
+    el.shortcutsUrl.hidden = false;
+    setStatus('Copy this address into a new tab to edit shortcuts.', true);
   }
 }
 

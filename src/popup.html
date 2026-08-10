@@ -130,6 +130,19 @@
       </div>
 
       <ul id="dupe-list" class="dupe-list"></ul>
+
+      <fieldset class="group-box">
+        <legend>Watch new tabs</legend>
+        <div class="row stack">
+          <label for="onDuplicate">When a new tab duplicates an open one, do</label>
+          <select id="onDuplicate"></select>
+        </div>
+        <p class="hint">
+          Checked once per tab, on the first page it loads, using the match and protection settings
+          above. A protected old tab is never closed, and a tab that is alone in its window is never
+          closed either — that would close the window.
+        </p>
+      </fieldset>
     </section>
 
     <section id="panel-reload" class="panel">

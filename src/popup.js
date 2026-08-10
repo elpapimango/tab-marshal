@@ -1,5 +1,6 @@
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
+import { DUPLICATE_ACTIONS } from './lib/watch.js';
 import { SELECTIONS, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
 import { THEMES, resolveTheme } from './lib/theme.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
@@ -40,6 +41,7 @@ const el = {
   protectPinned: $('protectPinned'),
   protectGrouped: $('protectGrouped'),
   protectAudible: $('protectAudible'),
+  onDuplicate: $('onDuplicate'),
   findDupes: $('find-dupes'),
   closeDupes: $('close-dupes'),
   dupeList: $('dupe-list'),
@@ -74,6 +76,7 @@ async function init() {
   fillOptions(el.primary, CRITERIA);
   fillOptions(el.secondary, [{ id: 'none', label: 'Nothing' }, ...CRITERIA]);
   fillOptions(el.matchMode, MATCH_MODES);
+  fillOptions(el.onDuplicate, DUPLICATE_ACTIONS);
   fillOptions(el.selection, SELECTIONS);
   fillOptions(el.filterField, FILTER_FIELDS);
   fillOptions(el.filterMode, FILTER_MODES);
@@ -126,6 +129,7 @@ function applySettingsToUi() {
   const s = settings.sort;
   const d = settings.duplicates;
   const r = settings.reload;
+  const w = settings.watch;
 
   el.scope.value = settings.scope;
   el.theme.value = settings.theme;
@@ -147,6 +151,7 @@ function applySettingsToUi() {
   el.protectPinned.checked = !!d.protectPinned;
   el.protectGrouped.checked = !!d.protectGrouped;
   el.protectAudible.checked = !!d.protectAudible;
+  el.onDuplicate.value = w.onDuplicate;
 
   el.selection.value = r.selection;
   el.filterField.value = r.field;
@@ -185,6 +190,9 @@ function readUi() {
       protectPinned: el.protectPinned.checked,
       protectGrouped: el.protectGrouped.checked,
       protectAudible: el.protectAudible.checked
+    },
+    watch: {
+      onDuplicate: el.onDuplicate.value
     },
     reload: {
       selection: el.selection.value,

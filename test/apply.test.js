@@ -10,10 +10,11 @@ import assert from 'node:assert/strict';
 const NONE = -1;
 
 /** Minimal stand-in for the parts of chrome.* that apply.js uses. */
-function makeFakeChrome(initial, { failReload = [] } = {}) {
-  let strip = initial.map((t, i) => ({ ...t, index: i, windowId: 1 }));
+function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}) {
+  let strip = initial.map((t, i) => ({ ...t, index: i, windowId: t.windowId ?? 1 }));
   const session = {};
   const reloads = [];
+  const activated = [];
   const unreloadable = new Set(failReload);
   const reindex = () => strip.forEach((t, i) => (t.index = i));
 
@@ -21,19 +22,32 @@ function makeFakeChrome(initial, { failReload = [] } = {}) {
     _strip: () => strip.map((t) => t.id),
     _tabs: () => strip.map((t) => ({ ...t })),
     _reloads: () => reloads.map((r) => ({ ...r })),
+    _activated: () => [...activated],
     windows: {
       getCurrent: async () => ({ id: 1 }),
-      getAll: async () => [{ id: 1 }]
+      getAll: async () => [{ id: 1 }],
+      get: async (id) => ({ id, type: windowType }),
+      update: async () => {}
     },
     tabs: {
       query: async (q = {}) => {
         let list = strip.map((t) => ({ ...t }));
         if (q.active) list = list.filter((t) => t.active);
+        if (q.windowId !== undefined) list = list.filter((t) => t.windowId === q.windowId);
         return list;
       },
       reload: async (id, options = {}) => {
         if (unreloadable.has(id)) throw new Error('cannot reload this page');
         reloads.push({ id, bypassCache: !!options.bypassCache });
+      },
+      get: async (id) => {
+        const found = strip.find((t) => t.id === id);
+        if (!found) throw new Error(`no such tab ${id}`);
+        return { ...found };
+      },
+      update: async (id, options = {}) => {
+        if (options.active) activated.push(id);
+        return { id };
       },
       move: async (id, { index }) => {
         const from = strip.findIndex((t) => t.id === id);
@@ -100,11 +114,12 @@ async function withFakeChrome(initial, fn, options) {
   }
 }
 
-const settings = (sort = {}, duplicates = {}, reload = {}) => ({
+const settings = (sort = {}, duplicates = {}, reload = {}, watch = {}) => ({
   scope: 'window',
   sort: { primary: 'domain', secondary: 'none', target: 'all', groupPlacement: 'interleave', groupOrderBy: 'tabs', ...sort },
   duplicates: { ...duplicates },
-  reload: { delayMs: 0, ...reload }
+  reload: { delayMs: 0, ...reload },
+  watch: { onDuplicate: 'ignore', ...watch }
 });
 
 test('sorting a flat strip reorders it', async () => {
@@ -324,6 +339,89 @@ test('an empty selection explains itself instead of reloading', async () => {
     assert.equal(result.reloaded, 0);
     assert.match(result.message, /No tabs match/);
     assert.deepEqual(chrome._reloads(), []);
+  });
+});
+
+// windowId matters here: the sole-tab-in-window guard depends on it, and a real
+// chrome.tabs.Tab always carries one.
+const WATCH_STRIP = [
+  { id: 1, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 1 },
+  { id: 2, url: 'https://other.com/', title: 'Other', pinned: false, groupId: NONE, windowId: 1 },
+  { id: 3, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 1 }
+];
+const newTab = () => ({ ...WATCH_STRIP[2], index: 2 });
+
+test('the watch does nothing while set to ignore', async () => {
+  await withFakeChrome(WATCH_STRIP, async (apply, chrome) => {
+    const result = await apply.respondToNewTab(newTab(), settings());
+    assert.equal(result.acted, false);
+    assert.deepEqual(chrome._strip(), [1, 2, 3]);
+  });
+});
+
+test('close-new removes the duplicate that just opened', async () => {
+  await withFakeChrome(WATCH_STRIP, async (apply, chrome) => {
+    const result = await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'close-new' }));
+    assert.equal(result.acted, true);
+    assert.deepEqual(chrome._strip(), [1, 2]);
+  });
+});
+
+test('close-old removes the existing tab and keeps the new one', async () => {
+  await withFakeChrome(WATCH_STRIP, async (apply, chrome) => {
+    await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'close-old' }));
+    assert.deepEqual(chrome._strip(), [2, 3]);
+  });
+});
+
+test('focus-old activates the old tab and closes the new one', async () => {
+  await withFakeChrome(WATCH_STRIP, async (apply, chrome) => {
+    await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'focus-old' }));
+    assert.deepEqual(chrome._activated(), [1]);
+    assert.deepEqual(chrome._reloads(), []);
+    assert.deepEqual(chrome._strip(), [1, 2]);
+  });
+});
+
+test('focus-old-reload also reloads the tab it switches to', async () => {
+  await withFakeChrome(WATCH_STRIP, async (apply, chrome) => {
+    await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'focus-old-reload' }));
+    assert.deepEqual(chrome._activated(), [1]);
+    assert.deepEqual(chrome._reloads().map((r) => r.id), [1]);
+    assert.deepEqual(chrome._strip(), [1, 2]);
+  });
+});
+
+test('a pinned original is protected from close-old', async () => {
+  const pinnedFirst = [{ ...WATCH_STRIP[0], pinned: true }, WATCH_STRIP[1], WATCH_STRIP[2]];
+  await withFakeChrome(pinnedFirst, async (apply, chrome) => {
+    const result = await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'close-old' }));
+    assert.equal(result.acted, false);
+    assert.deepEqual(chrome._strip(), [1, 2, 3], 'nothing is closed');
+  });
+});
+
+test('the watch ignores tabs in popup windows', async () => {
+  await withFakeChrome(
+    WATCH_STRIP,
+    async (apply, chrome) => {
+      const result = await apply.respondToNewTab(newTab(), settings({}, {}, {}, { onDuplicate: 'close-new' }));
+      assert.equal(result.acted, false);
+      assert.deepEqual(chrome._strip(), [1, 2, 3]);
+    },
+    { windowType: 'popup' }
+  );
+});
+
+test('a new tab that duplicates nothing survives', async () => {
+  const unique = [WATCH_STRIP[0], WATCH_STRIP[1], { ...WATCH_STRIP[2], url: 'https://fresh.com/' }];
+  await withFakeChrome(unique, async (apply, chrome) => {
+    const result = await apply.respondToNewTab(
+      { ...unique[2], index: 2, windowId: 1 },
+      settings({}, {}, {}, { onDuplicate: 'close-new' })
+    );
+    assert.equal(result.acted, false);
+    assert.deepEqual(chrome._strip(), [1, 2, 3]);
   });
 });
 

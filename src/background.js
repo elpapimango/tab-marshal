@@ -1,5 +1,6 @@
 import { loadSettings } from './lib/settings.js';
-import { sortTabs, undoSort, closeDuplicates, reloadTabs } from './lib/apply.js';
+import { sortTabs, undoSort, closeDuplicates, reloadTabs, respondToNewTab } from './lib/apply.js';
+import { isBlankUrl } from './lib/duplicates.js';
 
 const MENU = {
   sortSaved: 'sort-saved',
@@ -15,6 +16,8 @@ const MENU = {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
+  // An update reloads every tab's listeners; stay quiet through the churn.
+  suppressWatch(5_000);
   chrome.contextMenus.removeAll(() => {
     const parent = chrome.contextMenus.create({
       id: 'tab-sorter-root',
@@ -92,6 +95,91 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   );
   return true; // keep the channel open for the async response
 });
+
+/* ------------------------------------------------------------------ *
+ * Duplicate watch
+ *
+ * A tab is created with no URL and navigates a moment later, and the service
+ * worker can be evicted in between — so the set of tabs still awaiting their
+ * first URL lives in session storage, not in a module variable.
+ * ------------------------------------------------------------------ */
+
+const PENDING_KEY = 'watchPendingTabs';
+const SUPPRESS_KEY = 'watchSuppressedUntil';
+/** A tab that never navigates should not sit in the pending set forever. */
+const PENDING_TTL_MS = 60_000;
+
+/**
+ * Session restore recreates every saved tab, duplicates included. Acting on
+ * that burst would close tabs the user deliberately saved, so the watch stays
+ * quiet for a moment after the browser starts.
+ */
+async function suppressWatch(ms) {
+  await chrome.storage.session.set({ [SUPPRESS_KEY]: Date.now() + ms });
+}
+
+async function isSuppressed() {
+  const until = (await chrome.storage.session.get(SUPPRESS_KEY))[SUPPRESS_KEY] || 0;
+  return Date.now() < until;
+}
+
+chrome.runtime.onStartup.addListener(() => suppressWatch(15_000));
+
+async function readPending() {
+  return (await chrome.storage.session.get(PENDING_KEY))[PENDING_KEY] || {};
+}
+
+async function markPending(tabId) {
+  const pending = await readPending();
+  const cutoff = Date.now() - PENDING_TTL_MS;
+  for (const [id, at] of Object.entries(pending)) {
+    if (at < cutoff) delete pending[id];
+  }
+  pending[tabId] = Date.now();
+  await chrome.storage.session.set({ [PENDING_KEY]: pending });
+}
+
+async function takePending(tabId) {
+  const pending = await readPending();
+  if (!pending[tabId]) return false;
+  delete pending[tabId];
+  await chrome.storage.session.set({ [PENDING_KEY]: pending });
+  return true;
+}
+
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (await isSuppressed()) return;
+  await markPending(tab.id);
+  // Duplicating a tab or opening a bookmark in a new tab arrives with the URL
+  // already set, so there may never be an onUpdated to wait for.
+  if (tab.url && !isBlankUrl(tab.url)) await evaluateNewTab(tab.id, tab);
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (!changeInfo.url) return;
+  await evaluateNewTab(tabId, tab);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  takePending(tabId).catch(() => {});
+});
+
+/** Runs at most once per tab: the first committed URL after it was created. */
+async function evaluateNewTab(tabId, tab) {
+  try {
+    if (!(await takePending(tabId))) return;
+    if (await isSuppressed()) return;
+
+    const settings = await loadSettings();
+    if (!settings.watch || settings.watch.onDuplicate === 'ignore') return;
+
+    const fresh = tab && tab.url ? tab : await chrome.tabs.get(tabId);
+    const { acted } = await respondToNewTab(fresh, settings);
+    if (acted) await flashBadge('dup', '#0f6cbd');
+  } catch (err) {
+    console.error('[Tab Sorter] duplicate watch', err);
+  }
+}
 
 /**
  * Keyboard shortcuts and context-menu clicks have no popup to report into, so

@@ -1,6 +1,7 @@
 import { DEFAULT_SORT_OPTIONS } from './sorter.js';
 import { DEFAULT_DUPLICATE_OPTIONS } from './duplicates.js';
 import { DEFAULT_RELOAD_OPTIONS } from './select.js';
+import { DEFAULT_WATCH_OPTIONS } from './watch.js';
 import { DEFAULT_THEME } from './theme.js';
 
 const KEY = 'tabSorterSettings';
@@ -12,7 +13,8 @@ export const DEFAULT_SETTINGS = {
   theme: DEFAULT_THEME,
   sort: { ...DEFAULT_SORT_OPTIONS },
   duplicates: { ...DEFAULT_DUPLICATE_OPTIONS },
-  reload: { ...DEFAULT_RELOAD_OPTIONS }
+  reload: { ...DEFAULT_RELOAD_OPTIONS },
+  watch: { ...DEFAULT_WATCH_OPTIONS }
 };
 
 export async function loadSettings() {
@@ -23,7 +25,8 @@ export async function loadSettings() {
     ...saved,
     sort: { ...DEFAULT_SORT_OPTIONS, ...(saved.sort || {}) },
     duplicates: { ...DEFAULT_DUPLICATE_OPTIONS, ...(saved.duplicates || {}) },
-    reload: { ...DEFAULT_RELOAD_OPTIONS, ...(saved.reload || {}) }
+    reload: { ...DEFAULT_RELOAD_OPTIONS, ...(saved.reload || {}) },
+    watch: { ...DEFAULT_WATCH_OPTIONS, ...(saved.watch || {}) }
   };
 }
 
@@ -33,7 +36,8 @@ export async function saveSettings(settings) {
     theme: settings.theme,
     sort: { ...settings.sort },
     duplicates: { ...settings.duplicates },
-    reload: { ...settings.reload }
+    reload: { ...settings.reload },
+    watch: { ...settings.watch }
   };
   // Never persist compiled RegExps — they are not structured-cloneable.
   delete clean.sort.compiledRegex;

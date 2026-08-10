@@ -37,7 +37,7 @@ const BLANK_URLS = new Set([
   'edge://new-tab-page/'
 ]);
 
-function isBlank(url) {
+export function isBlankUrl(url) {
   if (!url) return true;
   const u = url.trim().toLowerCase();
   return BLANK_URLS.has(u) || u.startsWith('edge://newtab') || u.startsWith('chrome://newtab');
@@ -70,7 +70,8 @@ export function normalizeUrl(url, opts = DEFAULT_DUPLICATE_OPTIONS) {
   }
 }
 
-function isProtected(tab, opts) {
+export function isProtectedTab(tab, options = {}) {
+  const opts = { ...DEFAULT_DUPLICATE_OPTIONS, ...options };
   if (opts.protectPinned && tab.pinned) return true;
   if (opts.protectGrouped && (tab.groupId ?? TAB_GROUP_ID_NONE) !== TAB_GROUP_ID_NONE) return true;
   if (opts.protectAudible && tab.audible) return true;
@@ -80,7 +81,7 @@ function isProtected(tab, opts) {
 function pickKeeper(tabs, opts) {
   // A protected tab is never closed, so if the set contains one it becomes the
   // keeper and everything else in the set is a candidate for closing.
-  const protectedTabs = tabs.filter((t) => isProtected(t, opts));
+  const protectedTabs = tabs.filter((t) => isProtectedTab(t, opts));
   const pool = protectedTabs.length ? protectedTabs : tabs;
 
   switch (opts.keep) {
@@ -116,7 +117,7 @@ export function findDuplicates(tabs, options = {}) {
 
   const buckets = new Map();
   for (const tab of ordered) {
-    if (opts.ignoreBlank && isBlank(tab.url)) continue;
+    if (opts.ignoreBlank && isBlankUrl(tab.url)) continue;
     const key = normalizeUrl(tab.url, opts);
     if (!key) continue;
     if (!buckets.has(key)) buckets.set(key, []);
@@ -128,7 +129,7 @@ export function findDuplicates(tabs, options = {}) {
   for (const [key, group] of buckets) {
     if (group.length < 2) continue;
     const keeper = pickKeeper(group, opts);
-    const close = group.filter((t) => t.id !== keeper.id && !isProtected(t, opts));
+    const close = group.filter((t) => t.id !== keeper.id && !isProtectedTab(t, opts));
     if (!close.length) continue;
     sets.push({ key, keep: keeper, close });
     closeIds.push(...close.map((t) => t.id));

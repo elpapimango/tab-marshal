@@ -6,6 +6,7 @@
 import { planSort, planFromSnapshot, prepareOptions, TAB_GROUP_ID_NONE } from './sorter.js';
 import { findDuplicates } from './duplicates.js';
 import { selectTabs, explainEmpty, prepareReloadOptions } from './select.js';
+import { planDuplicateResponse, planDoesSomething } from './watch.js';
 
 const UNDO_KEY = 'undoSnapshots';
 const hasTabGroups = typeof chrome !== 'undefined' && typeof chrome.tabGroups !== 'undefined';
@@ -207,6 +208,64 @@ export async function reloadTabs(settings) {
     reloaded,
     message: `Reloaded ${reloaded} ${plural(reloaded, 'tab')}${hard}${tail}.`
   };
+}
+
+/**
+ * Decide and carry out what happens when a freshly opened tab duplicates one
+ * that is already open. Called from the service worker for each new tab's first
+ * committed URL; a no-op unless the user picked an action.
+ */
+export async function respondToNewTab(tab, settings) {
+  const action = (settings.watch && settings.watch.onDuplicate) || 'ignore';
+  if (action === 'ignore' || !tab || typeof tab.id !== 'number') return { acted: false };
+
+  // Popup windows opened by web apps are not part of the tab strip the user
+  // manages, so leave them alone.
+  try {
+    const win = await chrome.windows.get(tab.windowId);
+    if (win.type !== 'normal') return { acted: false };
+  } catch {
+    return { acted: false };
+  }
+
+  const scoped =
+    settings.scope === 'window'
+      ? await chrome.tabs.query({ windowId: tab.windowId })
+      : await chrome.tabs.query({ windowType: 'normal' });
+
+  const windowTabCount = scoped.filter((t) => t.windowId === tab.windowId).length;
+  const plan = planDuplicateResponse(
+    tab,
+    scoped.filter((t) => t.id !== tab.id),
+    { onDuplicate: action, match: settings.duplicates },
+    { windowTabCount }
+  );
+  if (!planDoesSomething(plan)) return { acted: false, plan };
+
+  // Focus before closing so the strip never flashes an unrelated tab.
+  if (plan.focusTabId) {
+    try {
+      await chrome.tabs.update(plan.focusTabId, { active: true });
+      if (plan.focusWindowId != null) await chrome.windows.update(plan.focusWindowId, { focused: true });
+    } catch {
+      /* the old tab vanished between the query and now */
+    }
+  }
+  if (plan.reloadTabId) {
+    try {
+      await chrome.tabs.reload(plan.reloadTabId);
+    } catch {
+      /* not reloadable */
+    }
+  }
+  if (plan.closeTabIds.length) {
+    try {
+      await chrome.tabs.remove(plan.closeTabIds);
+    } catch {
+      /* already closed */
+    }
+  }
+  return { acted: true, plan };
 }
 
 function sleep(ms) {

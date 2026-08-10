@@ -1,7 +1,8 @@
 # Tab Sorter
 
 A Microsoft Edge (Manifest V3) extension that sorts tabs and tab groups, finds and closes duplicate
-tabs, and reloads tabs in bulk. No build step, no dependencies — load the folder as-is.
+tabs (or stops them opening in the first place), and reloads tabs in bulk. No build step, no
+dependencies — load the folder as-is.
 
 ## Install (unpacked)
 
@@ -78,6 +79,41 @@ re-runs detection and closes them, so nothing opened in between gets closed by s
 
 Closing tabs cannot be undone from within the extension — `Ctrl+Shift+T` reopens them one at a
 time.
+
+### Watching new tabs
+
+Instead of cleaning up after the fact, the extension can check each tab as it opens and act if it
+duplicates something already open:
+
+| Action | Effect |
+| --- | --- |
+| Nothing — allow duplicates | **Default.** The watch is off |
+| Close the new tab | The duplicate never sticks around; the old tab is not focused |
+| Close the old tab, keep the new | The new tab takes the old one's place |
+| Switch to the old tab, close the new | Jump to the copy you already had |
+| Switch to the old tab, reload, close the new | Same, plus a refresh |
+
+Matching uses the same settings as manual duplicate detection — match mode, `www.`/trailing-slash
+normalisation, and the protection checkboxes. Scope applies too: *This window* only compares against
+tabs in the same window.
+
+Because this closes tabs on its own, it has guard rails:
+
+- **Off by default**, and each tab is judged exactly once, on the first URL it commits. Navigating a
+  tab you've been using for an hour is never second-guessed.
+- **A protected old tab is never closed.** If every duplicate is pinned, grouped or playing audio
+  (per your checkboxes), nothing happens at all — the extension will not quietly close the *new* tab
+  instead, since that is the opposite of what "close the old one" asked for.
+- **A tab alone in its window is never closed**, because that would close the window. The switch
+  still happens; only the close is skipped.
+- **Session restore is skipped.** Reopening a saved session recreates every tab at once, duplicates
+  included, so the watch stays quiet for 15 seconds after the browser starts rather than deleting
+  tabs you deliberately saved.
+- Tabs in popup windows opened by web apps are ignored.
+
+When the watch acts, the toolbar badge briefly shows `dup` so a tab never just disappears without
+explanation. Note that explicitly duplicating a tab counts as a new tab and will be caught — that
+is the point, but it is worth knowing before turning it on.
 
 ## Reload
 
@@ -175,12 +211,13 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-62 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, theme
-resolution, settings round-trips, and `apply.js` driven against a fake tab strip (group contiguity,
-idempotence, undo, closing duplicates, reloading). The logic in `src/lib/keys.js`,
-`src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js` and `src/lib/theme.js` is pure —
-it takes plain objects and returns a result — so it runs under plain Node with no browser stubs.
-`src/lib/apply.js` is the only place that talks to `chrome.*`.
+86 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
+strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
+logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
+`src/lib/watch.js` and `src/lib/theme.js` is pure — it takes plain objects and returns a result — so
+it runs under plain Node with no browser stubs. `src/lib/apply.js` is the only place that talks to
+`chrome.*`.
 
 Icons are generated rather than checked in as hand-made binaries:
 
@@ -198,13 +235,14 @@ Compress-Archive -Path manifest.json,icons,src -DestinationPath tab-sorter.zip -
 
 ```
 manifest.json          MV3 manifest
-src/background.js      service worker: commands, context menu, staggered reloads
+src/background.js      service worker: commands, context menu, staggered reloads, new-tab watch
 src/popup.{html,css,js} the UI
 src/theme-boot.js      applies the cached theme before first paint
 src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters (pure)
+src/lib/watch.js       what to do about a duplicate new tab (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
 src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings

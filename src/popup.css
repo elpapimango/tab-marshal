@@ -70,6 +70,36 @@
   --mocha-accent-fg: #11111b;
   --mocha-danger: #f38ba8;
   --mocha-hover: #313244;
+
+  /*
+   * Nord. Two slots carry text and are lightened from the canonical palette to
+   * stay legible on nord0: --muted (nord3 is a comment colour, 1.7:1) and
+   * --danger (nord11 is 3.1:1). Both now clear 4.5:1; every other slot is a
+   * canonical Nord colour.
+   */
+  --nord-bg: #2e3440;
+  --nord-fg: #eceff4;
+  --nord-muted: #9aa2b1;
+  --nord-line: #4c566a;
+  --nord-field: #3b4252;
+  --nord-accent: #88c0d0;
+  --nord-accent-fg: #2e3440;
+  --nord-danger: #d98d95;
+  --nord-hover: #434c5e;
+
+  /*
+   * Dracula. Same caveat: the spec's comment colour (#6272a4) is 3:1 against
+   * the background, so --muted blends it toward the foreground.
+   */
+  --dracula-bg: #282a36;
+  --dracula-fg: #f8f8f2;
+  --dracula-muted: #adb5cb;
+  --dracula-line: #44475a;
+  --dracula-field: #21222c;
+  --dracula-accent: #bd93f9;
+  --dracula-accent-fg: #282a36;
+  --dracula-danger: #ff5555;
+  --dracula-hover: #44475a;
 }
 
 /* Light is the resting state, including before the boot script runs. */
@@ -166,6 +196,32 @@
   --accent-fg: var(--mocha-accent-fg);
   --danger: var(--mocha-danger);
   --hover: var(--mocha-hover);
+}
+
+:root[data-theme='nord'] {
+  color-scheme: dark;
+  --bg: var(--nord-bg);
+  --fg: var(--nord-fg);
+  --muted: var(--nord-muted);
+  --line: var(--nord-line);
+  --field: var(--nord-field);
+  --accent: var(--nord-accent);
+  --accent-fg: var(--nord-accent-fg);
+  --danger: var(--nord-danger);
+  --hover: var(--nord-hover);
+}
+
+:root[data-theme='dracula'] {
+  color-scheme: dark;
+  --bg: var(--dracula-bg);
+  --fg: var(--dracula-fg);
+  --muted: var(--dracula-muted);
+  --line: var(--dracula-line);
+  --field: var(--dracula-field);
+  --accent: var(--dracula-accent);
+  --accent-fg: var(--dracula-accent-fg);
+  --danger: var(--dracula-danger);
+  --hover: var(--dracula-hover);
 }
 
 * {

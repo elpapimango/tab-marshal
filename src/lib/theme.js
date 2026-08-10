@@ -13,11 +13,22 @@ export const THEMES = [
   { id: 'ctp-latte', label: 'Latte', group: 'Catppuccin' },
   { id: 'ctp-frappe', label: 'Frappé', group: 'Catppuccin' },
   { id: 'ctp-macchiato', label: 'Macchiato', group: 'Catppuccin' },
-  { id: 'ctp-mocha', label: 'Mocha', group: 'Catppuccin' }
+  { id: 'ctp-mocha', label: 'Mocha', group: 'Catppuccin' },
+  { id: 'nord', label: 'Nord', group: 'More' },
+  { id: 'dracula', label: 'Dracula', group: 'More' }
 ];
 
 /** The palettes popup.css actually implements. */
-export const CONCRETE_THEMES = ['light', 'dark', 'ctp-latte', 'ctp-frappe', 'ctp-macchiato', 'ctp-mocha'];
+export const CONCRETE_THEMES = [
+  'light',
+  'dark',
+  'ctp-latte',
+  'ctp-frappe',
+  'ctp-macchiato',
+  'ctp-mocha',
+  'nord',
+  'dracula'
+];
 
 export const DEFAULT_THEME = 'system';
 

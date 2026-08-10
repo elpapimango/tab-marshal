@@ -111,9 +111,16 @@ failing the run.
 | --- | --- |
 | Default | Match browser, Light, Dark |
 | Catppuccin | Match browser (Latte / Mocha), Latte, Frappé, Macchiato, Mocha |
+| More | Nord, Dracula |
 
 "Match browser" follows `prefers-color-scheme`, and updates live if the browser or OS theme changes
-while the popup is open. The Catppuccin flavours use the official palettes.
+while the popup is open. Nord and Dracula are single-flavour dark schemes, so picking one keeps the
+popup dark whatever the browser is set to.
+
+The palettes are the official ones, with two documented exceptions in Nord: its comment colour
+(nord3) sits at 1.7:1 against the background and its red (nord11) at 3.1:1, which is not readable
+for the secondary text and error messages those slots carry, so both are lightened until they clear
+4.5:1. Every theme's text, accent and error colours meet that threshold.
 
 The chosen theme is resolved to a concrete palette in JS and stamped on `<html data-theme>`, so
 `popup.css` has one plain block per palette instead of duplicated media queries. The resolved value
@@ -168,7 +175,7 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-59 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, theme
+62 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, theme
 resolution, settings round-trips, and `apply.js` driven against a fake tab strip (group contiguity,
 idempotence, undo, closing duplicates, reloading). The logic in `src/lib/keys.js`,
 `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js` and `src/lib/theme.js` is pure —

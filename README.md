@@ -159,20 +159,23 @@ failing the run.
 
 ### Theme
 
-| Group | Options |
-| --- | --- |
-| Default | Match browser, Light, Dark |
-| Catppuccin | Match browser (Latte / Mocha), Latte, Frappé, Macchiato, Mocha |
-| More | Nord, Dracula |
+| Group | Light | Dark | Follows the browser |
+| --- | --- | --- | --- |
+| Default | Light | Dark | Match browser |
+| Catppuccin | Latte | Frappé, Macchiato, Mocha | Match browser (Latte / Mocha) |
+| Nord | Snow Storm | Polar Night | Match browser (Snow Storm / Polar Night) |
+| Dracula | Alucard | Dracula | Match browser (Alucard / Dracula) |
 
-"Match browser" follows `prefers-color-scheme`, and updates live if the browser or OS theme changes
-while the popup is open. Nord and Dracula are single-flavour dark schemes, so picking one keeps the
-popup dark whatever the browser is set to.
+Every group has a light flavour, a dark one, and an entry that follows `prefers-color-scheme` and
+switches live if the browser or OS theme changes while the popup is open. Naming a flavour outright
+pins it either way.
 
-The palettes are the official ones, with two documented exceptions in Nord: its comment colour
-(nord3) sits at 1.7:1 against the background and its red (nord11) at 3.1:1, which is not readable
-for the secondary text and error messages those slots carry, so both are lightened until they clear
-4.5:1. Every theme's text, accent and error colours meet that threshold.
+The palettes are the official ones — Snow Storm is Nord's own light end, and Alucard is Dracula's
+official light theme — with three documented exceptions, all in Nord. Its comment colour (nord3) is
+1.7:1 against Polar Night and its red (nord11) 3.1:1, neither readable in the secondary-text and
+error slots the UI puts them in; and on Snow Storm the Frost and Aurora colours are tuned for dark
+backgrounds, so the accent and error are darkened. Every theme's text, accent and error colours
+clear 4.5:1, apart from Catppuccin Latte's official 4.37 and 4.34, which are left canonical.
 
 The chosen theme is resolved to a concrete palette in JS and stamped on `<html data-theme>`, so
 `popup.css` has one plain block per palette instead of duplicated media queries. The resolved value
@@ -227,7 +230,7 @@ Nothing is sent anywhere: there are no host permissions, no content scripts and 
 npm test
 ```
 
-91 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+93 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,

@@ -88,6 +88,22 @@
   --nord-hover: #434c5e;
 
   /*
+   * Nord Snow Storm — the same palette used the other way up. The greys are
+   * canonical (nord5/6 background, nord0 text, nord3 comment, nord4 borders);
+   * Frost and Aurora are tuned for dark backgrounds, so the accent (nord10)
+   * and error (nord11) are darkened to clear 4.5:1 on a light one.
+   */
+  --snow-bg: #e5e9f0;
+  --snow-fg: #2e3440;
+  --snow-muted: #4c566a;
+  --snow-line: #d8dee9;
+  --snow-field: #eceff4;
+  --snow-accent: #46688f;
+  --snow-danger: #9c3a43;
+  --snow-accent-fg: #eceff4;
+  --snow-hover: #d8dee9;
+
+  /*
    * Dracula. Same caveat: the spec's comment colour (#6272a4) is 3:1 against
    * the background, so --muted blends it toward the foreground.
    */
@@ -100,6 +116,21 @@
   --dracula-accent-fg: #282a36;
   --dracula-danger: #ff5555;
   --dracula-hover: #44475a;
+
+  /*
+   * Alucard, Dracula's official light theme. Every value is canonical; the
+   * comment colour reaches 5.6:1 here, so unlike Nord nothing needs adjusting.
+   * Fields go white against the cream background.
+   */
+  --alucard-bg: #fffbeb;
+  --alucard-fg: #1f1f1f;
+  --alucard-muted: #6c664b;
+  --alucard-line: #cfcfde;
+  --alucard-field: #ffffff;
+  --alucard-accent: #644ac9;
+  --alucard-accent-fg: #fffbeb;
+  --alucard-danger: #cb3a2a;
+  --alucard-hover: #cfcfde;
 }
 
 /* Light is the resting state, including before the boot script runs. */
@@ -211,6 +242,19 @@
   --hover: var(--nord-hover);
 }
 
+:root[data-theme='nord-light'] {
+  color-scheme: light;
+  --bg: var(--snow-bg);
+  --fg: var(--snow-fg);
+  --muted: var(--snow-muted);
+  --line: var(--snow-line);
+  --field: var(--snow-field);
+  --accent: var(--snow-accent);
+  --accent-fg: var(--snow-accent-fg);
+  --danger: var(--snow-danger);
+  --hover: var(--snow-hover);
+}
+
 :root[data-theme='dracula'] {
   color-scheme: dark;
   --bg: var(--dracula-bg);
@@ -222,6 +266,19 @@
   --accent-fg: var(--dracula-accent-fg);
   --danger: var(--dracula-danger);
   --hover: var(--dracula-hover);
+}
+
+:root[data-theme='alucard'] {
+  color-scheme: light;
+  --bg: var(--alucard-bg);
+  --fg: var(--alucard-fg);
+  --muted: var(--alucard-muted);
+  --line: var(--alucard-line);
+  --field: var(--alucard-field);
+  --accent: var(--alucard-accent);
+  --accent-fg: var(--alucard-accent-fg);
+  --danger: var(--alucard-danger);
+  --hover: var(--alucard-hover);
 }
 
 * {

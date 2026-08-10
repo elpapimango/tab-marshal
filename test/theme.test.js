@@ -32,9 +32,34 @@ test('"match browser" follows the reported colour scheme', () => {
   assert.equal(resolveTheme('system', false), 'light');
 });
 
-test('Catppuccin auto picks Mocha for dark and Latte for light', () => {
-  assert.equal(resolveTheme('ctp-auto', true), 'ctp-mocha');
-  assert.equal(resolveTheme('ctp-auto', false), 'ctp-latte');
+test('each scheme has an auto variant pairing its light and dark flavours', () => {
+  const pairs = {
+    'ctp-auto': ['ctp-latte', 'ctp-mocha'],
+    'nord-auto': ['nord-light', 'nord'],
+    'dracula-auto': ['alucard', 'dracula'],
+    system: ['light', 'dark']
+  };
+  for (const [choice, [light, dark]] of Object.entries(pairs)) {
+    assert.equal(resolveTheme(choice, false), light, `${choice} light`);
+    assert.equal(resolveTheme(choice, true), dark, `${choice} dark`);
+  }
+});
+
+test('every group offering an auto variant also offers both flavours', () => {
+  const byGroup = new Map();
+  for (const t of THEMES) {
+    if (!byGroup.has(t.group)) byGroup.set(t.group, []);
+    byGroup.get(t.group).push(t.id);
+  }
+  for (const [group, ids] of byGroup) {
+    const auto = ids.find((id) => !CONCRETE_THEMES.includes(id));
+    if (!auto) continue;
+    const light = resolveTheme(auto, false);
+    const dark = resolveTheme(auto, true);
+    assert.ok(ids.includes(light), `${group}: ${light} is not offered on its own`);
+    assert.ok(ids.includes(dark), `${group}: ${dark} is not offered on its own`);
+    assert.notEqual(light, dark, `${group}: the auto variant resolves the same either way`);
+  }
 });
 
 test('an unknown or missing choice falls back to following the browser', () => {
@@ -43,10 +68,33 @@ test('an unknown or missing choice falls back to following the browser', () => {
   assert.equal(resolveTheme('', true), 'dark');
 });
 
-test('Nord and Dracula are explicit palettes, not browser-dependent', () => {
-  for (const id of ['nord', 'dracula']) {
+test('naming a flavour outright pins it, whatever the browser prefers', () => {
+  for (const id of ['nord', 'nord-light', 'dracula', 'alucard']) {
     assert.equal(resolveTheme(id, true), id);
     assert.equal(resolveTheme(id, false), id);
+  }
+});
+
+test('light palettes declare a light colour-scheme and dark ones dark', () => {
+  const expected = {
+    light: 'light',
+    'ctp-latte': 'light',
+    'nord-light': 'light',
+    alucard: 'light',
+    dark: 'dark',
+    'ctp-frappe': 'dark',
+    'ctp-macchiato': 'dark',
+    'ctp-mocha': 'dark',
+    nord: 'dark',
+    dracula: 'dark'
+  };
+  for (const id of CONCRETE_THEMES) {
+    assert.ok(expected[id], `${id} is not covered by this test — add it`);
+    assert.match(
+      themeBlock(id),
+      new RegExp(`color-scheme:\\s*${expected[id]}\\b`),
+      `${id} should declare color-scheme: ${expected[id]}`
+    );
   }
 });
 

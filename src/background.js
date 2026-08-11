@@ -29,8 +29,8 @@ api.runtime.onInstalled.addListener(() => {
   suppressWatch(5_000);
   api.contextMenus.removeAll(() => {
     const parent = api.contextMenus.create({
-      id: 'tab-sorter-root',
-      title: 'Tab Sorter',
+      id: 'tab-marshal-root',
+      title: 'Tab Marshal',
       contexts: ['action']
     });
     const add = (id, title) =>
@@ -202,7 +202,7 @@ async function evaluateTab(tabId, tab, source) {
     const { acted } = await respondToNewTab(fresh, settings);
     if (acted) await flashBadge('dup', '#0f6cbd');
   } catch (err) {
-    console.error('[Tab Sorter] duplicate watch', err);
+    console.error('[Tab Marshal] duplicate watch', err);
   }
 }
 
@@ -215,7 +215,7 @@ async function run(fn) {
     const result = await fn();
     await flashBadge(result && result.ok === false ? '–' : '✓', '#2d7d46');
   } catch (err) {
-    console.error('[Tab Sorter]', err);
+    console.error('[Tab Marshal]', err);
     await flashBadge('!', '#c5221f');
   }
 }

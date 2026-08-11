@@ -471,7 +471,7 @@ function applyTheme(choice) {
   }
 }
 
-const COMMAND_LABELS = { _execute_action: 'Open the Tab Sorter popup' };
+const COMMAND_LABELS = { _execute_action: 'Open the Tab Marshal popup' };
 
 /**
  * Commands that only earn their place on some browsers. Chrome and Edge both

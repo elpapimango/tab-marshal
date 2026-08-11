@@ -1,4 +1,4 @@
-# Tab Sorter
+# Tab Marshal
 
 A Manifest V3 browser extension that sorts tabs and tab groups, finds and closes duplicate tabs (or
 stops them opening in the first place), and reloads tabs in bulk. Runs on Edge, Chrome and Firefox
@@ -27,7 +27,7 @@ One codebase covers both: `src/lib/browser.js` resolves `browser.*` where it exi
 otherwise, and the manifest declares both `background.service_worker` (Chromium) and
 `background.scripts` (Firefox), which is Mozilla's documented cross-browser pattern. Each browser
 warns about the other's key and ignores it. Firefox needs an add-on ID for `storage.sync` to work at
-all, so `browser_specific_settings.gecko.id` is set to `tab-sorter@wienerworks`; change it if you
+all, so `browser_specific_settings.gecko.id` is set to `tab-marshal@wienerworks`; change it if you
 fork this, since the ID is permanent once an add-on is published.
 
 The Firefox minimum is 140 because `data_collection_permissions` — required on new add-ons, and
@@ -213,7 +213,7 @@ The Config tab lists every command with its current binding, read live from `chr
 
 | Action | Default |
 | --- | --- |
-| Open the Tab Sorter popup | unassigned |
+| Open the Tab Marshal popup | unassigned |
 | Sort tabs with saved settings | `Alt+Shift+S` |
 | Close duplicate tabs | `Alt+Shift+D` |
 | Reload tabs with saved selection | `Alt+Shift+R` |
@@ -288,7 +288,7 @@ npm run icons
 npm run package
 ```
 
-Writes `dist/tab-sorter-<version>.zip` with `manifest.json` at the root — a zip that nests
+Writes `dist/tab-marshal-<version>.zip` with `manifest.json` at the root — a zip that nests
 everything inside a folder is rejected by both stores. Only runtime files go in; tests, tools and
 docs are left out. The archive is reproducible: entries are added in a fixed order with a fixed
 timestamp, so the same source always produces identical bytes.

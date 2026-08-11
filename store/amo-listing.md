@@ -3,13 +3,21 @@
 Copy-paste source for the AMO submission form. Nothing here ships in the extension.
 
 Submit at <https://addons.mozilla.org/developers/addon/submit/distribution>.
-Upload `dist/tab-sorter-<version>.zip`, built with `npm run package`.
+Upload `dist/tab-marshal-<version>.zip`, built with `npm run package`.
 
 ---
 
 ## Name
 
-    Tab Sorter
+    Tab Marshal
+
+## URL slug
+
+    tab-marshal
+
+AMO derives the slug from the name and requires it to be globally unique. `tab-sorter`
+is taken by an unrelated add-on of the same name, which is why this one is called
+Tab Marshal. Set the slug under **Edit Product Page** if AMO does not pick it up.
 
 ## Summary
 
@@ -26,39 +34,39 @@ collects nothing, though that category is a stretch).
 
 *Rich text. Plain paragraphs and lists only — AMO strips most markup.*
 
-    Tab Sorter puts a tab strip back in order, keeps duplicates under control, and reloads tabs in bulk.
+Tab Marshal puts a tab strip back in order, keeps duplicates under control, and reloads tabs in bulk.
 
-    SORTING
+SORTING
 
-    Sort by registrable domain (news.bbc.co.uk becomes bbc.co.uk), full hostname, whole URL, host + path, tab title, when the tab was last used, or a regular expression. Add a second criterion to break ties, so "domain A-Z, then title A-Z" is one click. Comparison is case-insensitive and digit-aware, so page2 comes before page10.
+Sort by registrable domain (news.bbc.co.uk becomes bbc.co.uk), full hostname, whole URL, host + path, tab title, when the tab was last used, or a regular expression. Add a second criterion to break ties, so "domain A-Z, then title A-Z" is one click. Comparison is case-insensitive and digit-aware, so page2 comes before page10.
 
-    With a regular expression, the first capture group becomes the sort key — /browse/([A-Z]+-\d+) groups a wall of issue tabs by project. Tabs that do not match are parked at the end rather than scattered.
+With a regular expression, the first capture group becomes the sort key — /browse/([A-Z]+-\d+) groups a wall of issue tabs by project. Tabs that do not match are parked at the end rather than scattered.
 
-    TAB GROUPS
+TAB GROUPS
 
-    Tab groups must stay contiguous in the strip, so each group is moved as a single block. Sort inside groups, sort the groups themselves, or leave groups untouched and tidy only the loose tabs. Groups can be mixed in with loose tabs, pushed to the front, or pushed to the end, and ordered by their contents, name, colour or size. Pinned tabs stay pinned and stay at the front.
+Tab groups must stay contiguous in the strip, so each group is moved as a single block. Sort inside groups, sort the groups themselves, or leave groups untouched and tidy only the loose tabs. Groups can be mixed in with loose tabs, pushed to the front, or pushed to the end, and ordered by their contents, name, colour or size. Pinned tabs stay pinned and stay at the front.
 
-    Sorting is undoable — one click restores the order from immediately before.
+Sorting is undoable — one click restores the order from immediately before.
 
-    DUPLICATES
+DUPLICATES
 
-    Find duplicates lists what would close before anything closes. Match on the exact URL, ignoring the #fragment, ignoring the query string too, or on host and path alone. Keep the leftmost, rightmost or most recently used copy. Pinned tabs, grouped tabs and tabs playing audio can be protected, and a protected tab is never the one that closes.
+Find duplicates lists what would close before anything closes. Match on the exact URL, ignoring the #fragment, ignoring the query string too, or on host and path alone. Keep the leftmost, rightmost or most recently used copy. Pinned tabs, grouped tabs and tabs playing audio can be protected, and a protected tab is never the one that closes.
 
-    The watch goes further and catches duplicates as they open: close the new tab, close the old one, or switch to the copy you already had and optionally reload it. It is off by default, judges each new tab once, and never closes a protected tab or a tab that is alone in its window. It stays quiet after a session restore, so reopening a saved session never deletes tabs you meant to keep.
+The watch goes further and catches duplicates as they open: close the new tab, close the old one, or switch to the copy you already had and optionally reload it. It is off by default, judges each new tab once, and never closes a protected tab or a tab that is alone in its window. It stays quiet after a session restore, so reopening a saved session never deletes tabs you meant to keep.
 
-    RELOAD
+RELOAD
 
-    Reload the active tab, its tab group, every tab, or every tab matching a filter on domain, hostname, URL, path or title. Hard-reload past the cache, skip pinned tabs, leave sleeping tabs asleep, and stagger the batch so sixty tabs do not hit the network at once.
+Reload the active tab, its tab group, every tab, or every tab matching a filter on domain, hostname, URL, path or title. Hard-reload past the cache, skip pinned tabs, leave sleeping tabs asleep, and stagger the batch so sixty tabs do not hit the network at once.
 
-    EXTRAS
+EXTRAS
 
-    Ten themes, including light, dark, and browser-matching variants of Catppuccin, Nord and Dracula. Keyboard shortcuts for sorting, closing duplicates, reloading, and — because Firefox has no shortcut for it — duplicating the active tab.
+Ten themes, including light, dark, and browser-matching variants of Catppuccin, Nord and Dracula. Keyboard shortcuts for sorting, closing duplicates, reloading, and — because Firefox has no shortcut for it — duplicating the active tab.
 
-    PRIVACY
+PRIVACY
 
-    No host permissions, no content scripts, and nothing about your browsing is sent anywhere. The only outbound requests are the favicons shown in the duplicate and reload lists, loaded from each site's own address with no referrer.
+No host permissions, no content scripts, and nothing about your browsing is sent anywhere. The only outbound requests are the favicons shown in the duplicate and reload lists, loaded from each site's own address with no referrer.
 
-    Open source under the MIT licence: https://github.com/elpapimango/tab-sorter
+Open source under the MIT licence: https://github.com/elpapimango/tab-sorter
 
 ## Tags
 

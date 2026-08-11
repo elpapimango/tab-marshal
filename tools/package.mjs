@@ -3,7 +3,7 @@
  *
  *   node tools/package.mjs
  *
- * Writes dist/tab-sorter-<version>.zip containing only what the extension
+ * Writes dist/tab-marshal-<version>.zip containing only what the extension
  * needs, with manifest.json at the root — addons.mozilla.org and the Chrome
  * Web Store both reject a zip that nests everything inside a folder.
  *
@@ -116,7 +116,7 @@ const files = INCLUDE.flatMap(collect);
 const zip = buildZip(files);
 
 mkdirSync(OUT_DIR, { recursive: true });
-const out = join(OUT_DIR, `tab-sorter-${manifest.version}.zip`);
+const out = join(OUT_DIR, `tab-marshal-${manifest.version}.zip`);
 writeFileSync(out, zip);
 
 console.log(`${relative(ROOT, out)}  (${files.length} files, ${(zip.length / 1024).toFixed(1)} kB)`);

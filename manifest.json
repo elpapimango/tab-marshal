@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Tab Sorter",
+  "name": "Tab Marshal",
   "version": "1.0.0",
   "description": "Sort tabs and tab groups by domain, URL, title, recency or regex. Find and close duplicates, prevent new ones, and reload in bulk.",
   "author": "wienerworks",
@@ -19,7 +19,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "tab-sorter@wienerworks",
+      "id": "tab-marshal@wienerworks",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["none"]
@@ -30,7 +30,7 @@
     }
   },
   "action": {
-    "default_title": "Tab Sorter",
+    "default_title": "Tab Marshal",
     "default_popup": "src/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -47,7 +47,7 @@
   },
   "commands": {
     "_execute_action": {
-      "description": "Open the Tab Sorter popup"
+      "description": "Open the Tab Marshal popup"
     },
     "sort-tabs": {
       "description": "Sort tabs using the saved settings",

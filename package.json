@@ -4,9 +4,11 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "Microsoft Edge extension that sorts tabs and tab groups and closes duplicate tabs.",
+  "description": "Browser extension that sorts tabs and tab groups, manages duplicates, and reloads tabs in bulk.",
   "scripts": {
     "test": "node --test",
-    "icons": "node tools/make-icons.mjs"
+    "icons": "node tools/make-icons.mjs",
+    "package": "node tools/package.mjs",
+    "lint:amo": "npx --yes web-ext@latest lint --source-dir ."
   }
 }

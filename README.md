@@ -9,8 +9,8 @@ from the same folder. No build step, no dependencies — load it as-is.
 **Edge** — open `edge://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this
 folder. **Chrome** is the same at `chrome://extensions`.
 
-**Firefox** — open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and
-pick the `manifest.json` in this folder. Temporary add-ons are removed when Firefox closes; a
+**Firefox 140+** — open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**,
+and pick the `manifest.json` in this folder. Temporary add-ons are removed when Firefox closes; a
 permanent install has to be signed through addons.mozilla.org.
 
 ## Browser support
@@ -19,7 +19,7 @@ permanent install has to be signed through addons.mozilla.org.
 | --- | --- | --- |
 | Sorting, duplicates, reload, watch, themes | yes | yes |
 | Duplicate-tab shortcut | hidden — the browser already has one | offered, `Alt+Shift+K` |
-| Tab groups | yes | only where `tabGroups` exists — otherwise groups are simply absent, and every tab sorts as a loose one |
+| Tab groups | yes | Firefox 139+; below that the API is absent and every tab sorts as a loose one |
 | Favicons in the duplicate and reload lists | yes | yes |
 | Editing shortcuts from the Config tab | opens the browser's shortcuts page | Firefox refuses to let an extension open `about:addons`, so the tab shows the route instead |
 
@@ -28,6 +28,9 @@ otherwise, and the manifest declares both `background.service_worker` (Chromium)
 `background.scripts` (Firefox), which is Mozilla's documented cross-browser pattern. Each browser
 warns about the other's key and ignores it. Firefox needs an add-on ID for `storage.sync` to work at
 all, so `browser_specific_settings.gecko.id` is set; change it if you fork this.
+
+The Firefox minimum is 140 because `data_collection_permissions` — required on new add-ons, and
+declared here as `none` — only exists from 140, and `tabGroups` only from 139.
 
 ## Sorting
 
@@ -278,11 +281,26 @@ Icons are generated rather than checked in as hand-made binaries:
 npm run icons
 ```
 
-To produce a zip for the Partner Center:
+### Packaging
 
-```powershell
-Compress-Archive -Path manifest.json,icons,src -DestinationPath tab-sorter.zip -Force
+```bash
+npm run package
 ```
+
+Writes `dist/tab-sorter-<version>.zip` with `manifest.json` at the root — a zip that nests
+everything inside a folder is rejected by both stores. Only runtime files go in; tests, tools and
+docs are left out. The archive is reproducible: entries are added in a fixed order with a fixed
+timestamp, so the same source always produces identical bytes.
+
+Check it against Mozilla's validator before submitting:
+
+```bash
+npm run lint:amo
+```
+
+One warning is expected and deliberate — `BACKGROUND_SERVICE_WORKER_IGNORED`, because the manifest
+declares both background styles on purpose. See [store/amo-listing.md](store/amo-listing.md) for the
+submission text.
 
 ### Layout
 
@@ -302,6 +320,8 @@ src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings
 test/                  node --test suites
 tools/make-icons.mjs   PNG icon generator
+tools/package.mjs      builds the store zip
+store/amo-listing.md   addons.mozilla.org submission text
 ```
 
 ### How the sort is applied

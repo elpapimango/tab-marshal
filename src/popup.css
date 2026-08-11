@@ -285,6 +285,16 @@
   box-sizing: border-box;
 }
 
+/*
+ * The `hidden` attribute has to beat the layout rules below. A UA stylesheet
+ * gives it `display: none`, but any author rule setting `display` wins over
+ * that — so `.row { display: flex }` silently un-hides every row the script
+ * hides. Without this the regex and filter fields are always on screen.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   width: 400px;
   margin: 0;

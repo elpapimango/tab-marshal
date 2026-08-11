@@ -84,13 +84,19 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 
 ## Screenshots
 
-AMO allows up to ten. Worth capturing at the popup's natural 400px width:
+Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 
-1. Sort tab, with a regular expression in use
-2. Duplicates tab, showing a result list and the watch settings
-3. Reload tab, with a filter and its live count
-4. Config tab, showing themes and shortcuts
-5. The same popup in a couple of themes (Catppuccin Mocha, Nord)
+| File | Suggested caption |
+| --- | --- |
+| `1-sort.png` | Sort by domain, URL, title, recency — or a regular expression |
+| `2-duplicates.png` | Review duplicates before anything closes, or catch them as they open |
+| `3-reload.png` | Reload every tab matching a filter, staggered so nothing floods |
+| `4-config.png` | Keyboard shortcuts and ten themes |
+| `5-theme-mocha.png` | Catppuccin Mocha |
+| `6-theme-latte.png` | Catppuccin Latte |
+| `7-theme-nord.png` | Nord |
+
+They are generated from the real popup against a fixed sample session, not mocked up.
 
 ## Notes for the reviewer
 

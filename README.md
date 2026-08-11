@@ -250,6 +250,9 @@ The Config tab lists every command with its current binding, read live from `chr
 do. The Config tab only lists it on Firefox. Manifest commands are static, so the browser's own
 shortcuts page still shows it on Chromium — it works there too, it is just redundant.
 
+The **About** box at the bottom of the Config tab shows the running name and version, read from
+the manifest so it cannot drift, plus a link to the project page.
+
 **Bindings can only be changed on the browser's own page.** `chrome.commands` is read-only —
 extensions can see their shortcuts but not set them, so "Change shortcuts…" just opens
 `edge://extensions/shortcuts` (`chrome://…` on Chrome). If the browser refuses to let the extension

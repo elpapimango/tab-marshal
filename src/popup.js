@@ -79,6 +79,9 @@ const el = {
   shortcutList: $('shortcut-list'),
   openShortcuts: $('open-shortcuts'),
   shortcutsUrl: $('shortcuts-url'),
+  aboutName: $('about-name'),
+  aboutVersion: $('about-version'),
+  aboutHome: $('about-home'),
   status: $('status')
 };
 
@@ -105,6 +108,7 @@ async function init() {
   applyTheme(settings.theme);
   applySettingsToUi();
   wireEvents();
+  renderAbout();
   await renderShortcuts();
   el.undo.disabled = !(await hasUndo(settings));
 }
@@ -549,6 +553,15 @@ function applyTheme(choice) {
   } catch {
     /* storage unavailable; the theme still applies for this session */
   }
+}
+
+/** Name and version come from the manifest, so they can never drift from it. */
+function renderAbout() {
+  const manifest = api.runtime.getManifest();
+  el.aboutName.textContent = manifest.name;
+  el.aboutVersion.textContent = `v${manifest.version}`;
+  if (manifest.homepage_url) el.aboutHome.href = manifest.homepage_url;
+  else el.aboutHome.hidden = true;
 }
 
 const COMMAND_LABELS = { _execute_action: 'Open the Tab Marshal popup' };

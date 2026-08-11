@@ -90,9 +90,14 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-sorter/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.0.0)
+## Version notes (1.1.0)
 
-    First release.
+    First public release.
+
+    Sort tabs and tab groups by domain, hostname, URL, host + path, title, recency or a regular
+    expression. Select tabs in bulk and hand them to the browser's own right-click menu. Find and
+    close duplicates, or catch them as they open. Reload tabs by filter, group or all at once. Ten
+    themes, and keyboard shortcuts for everything.
 
 ## Screenshots
 

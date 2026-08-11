@@ -633,6 +633,43 @@ button.danger:not(:disabled) {
   font-style: italic;
 }
 
+.about {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.about-icon {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 7px;
+}
+
+.about-text {
+  min-width: 0;
+}
+
+.about-title {
+  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+#about-version {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.about-sub {
+  margin: 0;
+}
+
+.about a {
+  color: var(--accent);
+}
+
 .hint.mono {
   user-select: all;
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;

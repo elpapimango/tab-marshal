@@ -27,7 +27,8 @@ One codebase covers both: `src/lib/browser.js` resolves `browser.*` where it exi
 otherwise, and the manifest declares both `background.service_worker` (Chromium) and
 `background.scripts` (Firefox), which is Mozilla's documented cross-browser pattern. Each browser
 warns about the other's key and ignores it. Firefox needs an add-on ID for `storage.sync` to work at
-all, so `browser_specific_settings.gecko.id` is set; change it if you fork this.
+all, so `browser_specific_settings.gecko.id` is set to `tab-sorter@wienerworks`; change it if you
+fork this, since the ID is permanent once an add-on is published.
 
 The Firefox minimum is 140 because `data_collection_permissions` — required on new add-ons, and
 declared here as `none` — only exists from 140, and `tabGroups` only from 139.

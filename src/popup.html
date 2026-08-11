@@ -21,6 +21,7 @@
 
     <nav class="tabs" role="tablist">
       <button class="tab-btn is-active" data-panel="panel-sort" role="tab">Sort</button>
+      <button class="tab-btn" data-panel="panel-select" role="tab">Select</button>
       <button class="tab-btn" data-panel="panel-dupes" role="tab">Duplicates</button>
       <button class="tab-btn" data-panel="panel-reload" role="tab">Reload</button>
       <button class="tab-btn" data-panel="panel-config" role="tab">Config</button>
@@ -95,6 +96,39 @@
         <button id="sort" class="primary">Sort tabs</button>
         <button id="undo" disabled>Undo</button>
       </div>
+    </section>
+
+    <section id="panel-select" class="panel">
+      <div class="row">
+        <label for="selectSource">Select</label>
+        <select id="selectSource"></select>
+      </div>
+
+      <div class="row" id="sel-filter-row" hidden>
+        <select id="selField" aria-label="Filter field"></select>
+        <select id="selMode" aria-label="Filter comparison"></select>
+      </div>
+      <div class="row" id="sel-value-row" hidden>
+        <input id="selValue" type="text" spellcheck="false" placeholder="github.com" aria-label="Filter value" />
+      </div>
+      <div class="row inline" id="sel-case" hidden>
+        <label class="chk"><input type="checkbox" id="selCaseSensitive" /> case sensitive</label>
+      </div>
+
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="selSkipPinned" /> skip pinned tabs</label>
+      </div>
+
+      <div class="actions">
+        <button id="select" class="primary">Select tabs</button>
+      </div>
+
+      <p class="hint">
+        Highlights the tabs in this window and stops there. Right-click any highlighted tab to move,
+        close, group or bookmark the whole selection with the browser's own menu.
+      </p>
+
+      <ul id="select-list" class="dupe-list"></ul>
     </section>
 
     <section id="panel-dupes" class="panel">

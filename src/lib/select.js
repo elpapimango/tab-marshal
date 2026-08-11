@@ -46,10 +46,32 @@ export const DEFAULT_RELOAD_OPTIONS = {
   delayMs: 100
 };
 
-/** Compile the filter once; throws a readable error on a bad pattern. */
-export function prepareReloadOptions(options) {
-  if (options && options.__prepared) return options;
-  const opts = { ...DEFAULT_RELOAD_OPTIONS, ...options, __prepared: true };
+/**
+ * Sources for the Select panel, which highlights tabs and then gets out of the
+ * way. "active" is missing on purpose — selecting a single tab is what clicking
+ * it already does — and "duplicates" is here instead, resolved by the caller
+ * since it needs the duplicate-matching settings.
+ */
+export const SELECT_SOURCES = [
+  { id: 'filter', label: 'Tabs matching a filter' },
+  { id: 'all', label: 'All tabs' },
+  { id: 'group', label: "The active tab's group" },
+  { id: 'duplicates', label: 'Duplicate tabs (the extra copies)' }
+];
+
+export const DEFAULT_SELECT_OPTIONS = {
+  /** 'filter' | 'all' | 'group' | 'duplicates' */
+  selection: 'filter',
+  field: 'domain',
+  mode: 'contains',
+  value: '',
+  caseSensitive: false,
+  skipPinned: false,
+  /** Unlike reloading, selecting a sleeping tab costs nothing. */
+  skipUnloaded: false
+};
+
+function withCompiledFilter(opts) {
   if (opts.selection === 'filter' && opts.mode === 'regex') {
     if (!opts.value) throw new Error('Enter a pattern to match.');
     try {
@@ -59,6 +81,18 @@ export function prepareReloadOptions(options) {
     }
   }
   return opts;
+}
+
+/** Compile the filter once; throws a readable error on a bad pattern. */
+export function prepareReloadOptions(options) {
+  if (options && options.__prepared) return options;
+  return withCompiledFilter({ ...DEFAULT_RELOAD_OPTIONS, ...options, __prepared: true });
+}
+
+/** Same, for the Select panel's own defaults. */
+export function prepareSelectOptions(options) {
+  if (options && options.__prepared) return options;
+  return withCompiledFilter({ ...DEFAULT_SELECT_OPTIONS, ...options, __prepared: true });
 }
 
 /** The value a filter is tested against. */
@@ -109,6 +143,12 @@ export function selectTabs(tabs, options, context = {}) {
     return tabs.filter((t) => t.id === context.activeTabId);
   }
 
+  if (opts.selection === 'duplicates') {
+    // Needs the duplicate-matching settings, which this module deliberately
+    // knows nothing about; apply.js resolves it before calling here.
+    return [];
+  }
+
   let list = tabs;
   if (opts.selection === 'group') {
     const gid = context.activeGroupId;
@@ -130,5 +170,6 @@ export function explainEmpty(options, context = {}) {
     if (gid === undefined || gid === TAB_GROUP_ID_NONE) return 'The active tab is not in a tab group.';
   }
   if (opts.selection === 'filter' && !opts.value) return 'Enter a value to filter on.';
+  if (opts.selection === 'duplicates') return 'No duplicate tabs in this window.';
   return 'No tabs match.';
 }

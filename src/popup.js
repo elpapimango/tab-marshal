@@ -2,7 +2,7 @@ import { api, isFirefox } from './lib/browser.js';
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
 import { DUPLICATE_ACTIONS } from './lib/watch.js';
-import { SELECTIONS, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
+import { SELECTIONS, SELECT_SOURCES, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
 import { THEMES, resolveTheme } from './lib/theme.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 import {
@@ -12,6 +12,8 @@ import {
   closeDuplicates,
   previewReload,
   reloadTabs,
+  previewSelection,
+  applySelection,
   hasUndo
 } from './lib/apply.js';
 
@@ -62,6 +64,17 @@ const el = {
   delayMs: $('delayMs'),
   reload: $('reload'),
   reloadList: $('reload-list'),
+  selectSource: $('selectSource'),
+  selFilterRow: $('sel-filter-row'),
+  selValueRow: $('sel-value-row'),
+  selCase: $('sel-case'),
+  selField: $('selField'),
+  selMode: $('selMode'),
+  selValue: $('selValue'),
+  selCaseSensitive: $('selCaseSensitive'),
+  selSkipPinned: $('selSkipPinned'),
+  selectBtn: $('select'),
+  selectList: $('select-list'),
   theme: $('theme'),
   shortcutList: $('shortcut-list'),
   openShortcuts: $('open-shortcuts'),
@@ -83,6 +96,9 @@ async function init() {
   fillOptions(el.selection, SELECTIONS);
   fillOptions(el.filterField, FILTER_FIELDS);
   fillOptions(el.filterMode, FILTER_MODES);
+  fillOptions(el.selectSource, SELECT_SOURCES);
+  fillOptions(el.selField, FILTER_FIELDS);
+  fillOptions(el.selMode, FILTER_MODES);
   fillGroupedOptions(el.theme, THEMES);
 
   settings = await loadSettings();
@@ -133,6 +149,7 @@ function applySettingsToUi() {
   const d = settings.duplicates;
   const r = settings.reload;
   const w = settings.watch;
+  const sel = settings.select;
 
   el.scope.value = settings.scope;
   el.theme.value = settings.theme;
@@ -166,6 +183,13 @@ function applySettingsToUi() {
   el.skipPinned.checked = !!r.skipPinned;
   el.skipUnloaded.checked = !!r.skipUnloaded;
   el.delayMs.value = String(r.delayMs);
+
+  el.selectSource.value = sel.selection;
+  el.selField.value = sel.field;
+  el.selMode.value = sel.mode;
+  el.selValue.value = sel.value || '';
+  el.selCaseSensitive.checked = !!sel.caseSensitive;
+  el.selSkipPinned.checked = !!sel.skipPinned;
 
   refreshConditionalUi();
 }
@@ -209,6 +233,15 @@ function readUi() {
       skipPinned: el.skipPinned.checked,
       skipUnloaded: el.skipUnloaded.checked,
       delayMs: Number(el.delayMs.value)
+    },
+    select: {
+      selection: el.selectSource.value,
+      field: el.selField.value,
+      mode: el.selMode.value,
+      value: el.selValue.value,
+      caseSensitive: el.selCaseSensitive.checked,
+      skipPinned: el.selSkipPinned.checked,
+      skipUnloaded: false
     }
   };
 }
@@ -235,6 +268,12 @@ function refreshConditionalUi() {
   el.filterValueRow.hidden = !usesFilter;
   el.filterCase.hidden = !usesFilter;
   el.filterValue.placeholder = el.filterMode.value === 'regex' ? '\\.example\\.(com|org)$' : 'github.com';
+
+  const selUsesFilter = el.selectSource.value === 'filter';
+  el.selFilterRow.hidden = !selUsesFilter;
+  el.selValueRow.hidden = !selUsesFilter;
+  el.selCase.hidden = !selUsesFilter;
+  el.selValue.placeholder = el.selMode.value === 'regex' ? '\\.example\\.(com|org)$' : 'github.com';
 }
 
 function wireEvents() {
@@ -246,6 +285,7 @@ function wireEvents() {
       });
       setStatus('');
       if (btn.dataset.panel === 'panel-reload') refreshReloadPreview();
+      if (btn.dataset.panel === 'panel-select') refreshSelectPreview();
       // Shortcuts may have been rebound since the popup opened.
       if (btn.dataset.panel === 'panel-config') renderShortcuts();
     });
@@ -262,6 +302,7 @@ function wireEvents() {
   el.findDupes.addEventListener('click', onFindDuplicates);
   el.closeDupes.addEventListener('click', onCloseDuplicates);
   el.reload.addEventListener('click', onReload);
+  el.selectBtn.addEventListener('click', onSelect);
   el.openShortcuts.addEventListener('click', onOpenShortcuts);
 
   // Keep "match browser" honest if the OS flips while the popup is open.
@@ -277,6 +318,9 @@ async function onSettingChanged() {
   el.undo.disabled = !(await hasUndo(settings));
   if (document.getElementById('panel-reload').classList.contains('is-active')) {
     await refreshReloadPreview();
+  }
+  if (document.getElementById('panel-select').classList.contains('is-active')) {
+    await refreshSelectPreview();
   }
 }
 
@@ -456,6 +500,42 @@ async function focusTab(tab) {
     window.close();
   } catch {
     /* tab went away */
+  }
+}
+
+/** Keeps the select button labelled with the live count, like the reload one. */
+async function refreshSelectPreview() {
+  try {
+    const { tabs, count, reason } = await previewSelection(settings);
+    el.selectList.replaceChildren(...tabs.slice(0, PREVIEW_ROWS).map((t) => tabRow(t)));
+    el.selectBtn.textContent = count ? `Select ${count} ${count === 1 ? 'tab' : 'tabs'}` : 'Select tabs';
+    el.selectBtn.disabled = count === 0;
+    el.selValue.classList.remove('invalid');
+    setStatus(count ? extraRowsNote(count) : reason);
+  } catch (err) {
+    el.selectList.replaceChildren();
+    el.selectBtn.textContent = 'Select tabs';
+    el.selectBtn.disabled = true;
+    el.selValue.classList.add('invalid');
+    setStatus(err.message || String(err), true);
+  }
+}
+
+async function onSelect() {
+  el.selectBtn.disabled = true;
+  try {
+    const result = await applySelection(settings);
+    if (result.ok === false) {
+      setStatus(result.message, true);
+      el.selectBtn.disabled = false;
+      return;
+    }
+    // The highlight is the confirmation, and it is behind the popup — close so
+    // the tabs can be right-clicked straight away.
+    window.close();
+  } catch (err) {
+    setStatus(err.message || String(err), true);
+    el.selectBtn.disabled = false;
   }
 }
 

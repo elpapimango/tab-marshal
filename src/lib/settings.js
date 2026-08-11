@@ -1,7 +1,7 @@
 import { api } from './browser.js';
 import { DEFAULT_SORT_OPTIONS } from './sorter.js';
 import { DEFAULT_DUPLICATE_OPTIONS } from './duplicates.js';
-import { DEFAULT_RELOAD_OPTIONS } from './select.js';
+import { DEFAULT_RELOAD_OPTIONS, DEFAULT_SELECT_OPTIONS } from './select.js';
 import { DEFAULT_WATCH_OPTIONS } from './watch.js';
 import { DEFAULT_THEME } from './theme.js';
 
@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   sort: { ...DEFAULT_SORT_OPTIONS },
   duplicates: { ...DEFAULT_DUPLICATE_OPTIONS },
   reload: { ...DEFAULT_RELOAD_OPTIONS },
+  select: { ...DEFAULT_SELECT_OPTIONS },
   watch: { ...DEFAULT_WATCH_OPTIONS }
 };
 
@@ -27,6 +28,7 @@ export async function loadSettings() {
     sort: { ...DEFAULT_SORT_OPTIONS, ...(saved.sort || {}) },
     duplicates: { ...DEFAULT_DUPLICATE_OPTIONS, ...(saved.duplicates || {}) },
     reload: { ...DEFAULT_RELOAD_OPTIONS, ...(saved.reload || {}) },
+    select: { ...DEFAULT_SELECT_OPTIONS, ...(saved.select || {}) },
     watch: { ...DEFAULT_WATCH_OPTIONS, ...(saved.watch || {}) }
   };
 }
@@ -38,6 +40,7 @@ export async function saveSettings(settings) {
     sort: { ...settings.sort },
     duplicates: { ...settings.duplicates },
     reload: { ...settings.reload },
+    select: { ...settings.select },
     watch: { ...settings.watch }
   };
   // Never persist compiled RegExps — they are not structured-cloneable.
@@ -45,5 +48,7 @@ export async function saveSettings(settings) {
   delete clean.sort.__prepared;
   delete clean.reload.compiledFilter;
   delete clean.reload.__prepared;
+  delete clean.select.compiledFilter;
+  delete clean.select.__prepared;
   await api.storage.sync.set({ [KEY]: clean });
 }

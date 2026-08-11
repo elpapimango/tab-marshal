@@ -48,6 +48,10 @@ Tab groups must stay contiguous in the strip, so each group is moved as a single
 
 Sorting is undoable — one click restores the order from immediately before.
 
+SELECTING
+
+Every other panel does something to the tabs it picks. Select picks them and stops, leaving them highlighted in the tab strip so the browser's own right-click menu can take over — move to a new window, add to a group, bookmark, close, whatever it offers for a multi-tab selection. Pick by the same filter Reload uses, by tab group, by everything, or by "the duplicate copies".
+
 DUPLICATES
 
 Find duplicates lists what would close before anything closes. Match on the exact URL, ignoring the #fragment, ignoring the query string too, or on host and path alone. Keep the leftmost, rightmost or most recently used copy. Pinned tabs, grouped tabs and tabs playing audio can be protected, and a protected tab is never the one that closes.
@@ -97,12 +101,13 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | File | Suggested caption |
 | --- | --- |
 | `1-sort.png` | Sort by domain, URL, title, recency — or a regular expression |
-| `2-duplicates.png` | Review duplicates before anything closes, or catch them as they open |
-| `3-reload.png` | Reload every tab matching a filter, staggered so nothing floods |
-| `4-config.png` | Keyboard shortcuts and ten themes |
-| `5-theme-mocha.png` | Catppuccin Mocha |
-| `6-theme-latte.png` | Catppuccin Latte |
-| `7-theme-nord.png` | Nord |
+| `2-select.png` | Select tabs by filter, then use the browser's own right-click menu |
+| `3-duplicates.png` | Review duplicates before anything closes, or catch them as they open |
+| `4-reload.png` | Reload every tab matching a filter, staggered so nothing floods |
+| `5-config.png` | Keyboard shortcuts and ten themes |
+| `6-theme-mocha.png` | Catppuccin Mocha |
+| `7-theme-latte.png` | Catppuccin Latte |
+| `8-theme-nord.png` | Nord |
 
 They are generated from the real popup against a fixed sample session, not mocked up.
 

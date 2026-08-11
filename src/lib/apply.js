@@ -6,7 +6,7 @@
 import { api, hasTabGroups } from './browser.js';
 import { planSort, planFromSnapshot, prepareOptions, TAB_GROUP_ID_NONE } from './sorter.js';
 import { findDuplicates } from './duplicates.js';
-import { selectTabs, explainEmpty, prepareReloadOptions } from './select.js';
+import { selectTabs, explainEmpty, prepareReloadOptions, prepareSelectOptions } from './select.js';
 import { planDuplicateResponse, planDoesSomething } from './watch.js';
 
 const UNDO_KEY = 'undoSnapshots';
@@ -207,6 +207,54 @@ export async function reloadTabs(settings) {
     ok: true,
     reloaded,
     message: `Reloaded ${reloaded} ${plural(reloaded, 'tab')}${hard}${tail}.`
+  };
+}
+
+/**
+ * Which tabs the Select panel would highlight.
+ *
+ * Always one window: multi-select is a per-window notion, and `tabs.highlight`
+ * makes its first entry active, so spanning windows would yank the focused tab
+ * in every one of them.
+ */
+export async function previewSelection(settings) {
+  const opts = prepareSelectOptions(settings.select);
+  const win = await api.windows.getCurrent();
+  const tabs = await api.tabs.query({ windowId: win.id });
+  const context = await reloadContext();
+
+  let chosen;
+  if (opts.selection === 'duplicates') {
+    const ids = new Set(findDuplicates(tabs, settings.duplicates).closeIds);
+    chosen = tabs.filter((t) => ids.has(t.id));
+  } else {
+    chosen = selectTabs(tabs, opts, context);
+  }
+
+  return {
+    windowId: win.id,
+    tabs: chosen,
+    count: chosen.length,
+    reason: chosen.length ? '' : explainEmpty(opts, context)
+  };
+}
+
+/** Highlight the selection in the tab strip, changing nothing else. */
+export async function applySelection(settings) {
+  const { windowId, tabs, count, reason } = await previewSelection(settings);
+  if (!count) return { ok: false, selected: 0, message: reason };
+
+  // highlight() takes indices, not ids, and makes the first one active. Leading
+  // with the already-active tab when it is part of the set keeps the focus
+  // where the user left it.
+  const active = tabs.find((t) => t.active);
+  const ordered = active ? [active, ...tabs.filter((t) => t !== active)] : tabs;
+
+  await api.tabs.highlight({ windowId, tabs: ordered.map((t) => t.index), populate: false });
+  return {
+    ok: true,
+    selected: count,
+    message: `Selected ${count} ${plural(count, 'tab')}.`
   };
 }
 

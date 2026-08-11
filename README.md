@@ -1,8 +1,8 @@
 # Tab Marshal
 
-A Manifest V3 browser extension that sorts tabs and tab groups, finds and closes duplicate tabs (or
-stops them opening in the first place), and reloads tabs in bulk. Runs on Edge, Chrome and Firefox
-from the same folder. No build step, no dependencies — load it as-is.
+A Manifest V3 browser extension that sorts tabs and tab groups, selects them in bulk, closes
+duplicates (or stops them opening at all), and reloads tabs in bulk. Runs on Edge, Chrome and
+Firefox from the same folder. No build step, no dependencies — load it as-is.
 
 ## Install (unpacked)
 
@@ -17,7 +17,7 @@ permanent install has to be signed through addons.mozilla.org.
 
 | | Edge / Chrome | Firefox |
 | --- | --- | --- |
-| Sorting, duplicates, reload, watch, themes | yes | yes |
+| Sorting, select, duplicates, reload, watch, themes | yes | yes |
 | Duplicate-tab shortcut | hidden — the browser already has one | offered, `Alt+Shift+K` |
 | Tab groups | yes | Firefox 139+; below that the API is absent and every tab sorts as a loose one |
 | Favicons in the duplicate and reload lists | yes | yes |
@@ -84,6 +84,32 @@ the end, and ordered by their tabs (same criteria), name, colour, or size.
 
 **Undo** restores the tab order captured immediately before the last sort. It is kept in session
 storage, so it survives closing the popup but not restarting the browser.
+
+## Select
+
+Everything else here *does* something to the tabs it picks. **Select** picks them and stops, leaving
+them highlighted in the tab strip so the browser's own right-click menu can take over — move to a
+new window, add to a group, bookmark them all, close them, whatever the browser offers for a
+multi-tab selection.
+
+| Source | Picks |
+| --- | --- |
+| Tabs matching a filter | Same filter as Reload — *domain / hostname / URL / host+path / title* against *contains / is exactly / starts with / matches regex* |
+| All tabs | Everything in the window |
+| The active tab's group | The tab group the current tab is in |
+| Duplicate tabs | The extra copies — exactly the tabs *Close duplicates* would remove, using the same match and protection settings |
+
+Pinned tabs can be skipped. The button carries a live count, and the matching tabs are listed below
+it before you commit to anything.
+
+Two details worth knowing:
+
+- **One window only.** Multi-select is a per-window notion, and `tabs.highlight` makes its first
+  entry the active tab — spanning windows would yank the focused tab in every one of them. The
+  global *Scope* setting does not apply here.
+- **The popup closes on selecting**, because the highlight is behind it and the whole point is to
+  right-click it immediately. If the currently active tab is part of the selection it is put first,
+  so the browser does not move your focus somewhere unexpected.
 
 ## Duplicates
 
@@ -268,7 +294,7 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-103 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+112 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
@@ -313,7 +339,7 @@ src/theme-boot.js      applies the cached theme before first paint
 src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
-src/lib/select.js      tab selection and filters (pure)
+src/lib/select.js      tab selection and filters, shared by Select and Reload (pure)
 src/lib/watch.js       when to judge a tab, and what to do about a duplicate (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
 src/lib/browser.js     browser.* / chrome.* namespace shim

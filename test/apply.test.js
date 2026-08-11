@@ -15,6 +15,7 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
   const session = {};
   const reloads = [];
   const activated = [];
+  const highlights = [];
   let nextId = 1000;
   const unreloadable = new Set(failReload);
   const reindex = () => strip.forEach((t, i) => (t.index = i));
@@ -24,6 +25,7 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
     _tabs: () => strip.map((t) => ({ ...t })),
     _reloads: () => reloads.map((r) => ({ ...r })),
     _activated: () => [...activated],
+    _highlights: () => highlights.map((h) => ({ ...h })),
     windows: {
       getCurrent: async () => ({ id: 1 }),
       getAll: async () => [{ id: 1 }],
@@ -40,6 +42,16 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
       reload: async (id, options = {}) => {
         if (unreloadable.has(id)) throw new Error('cannot reload this page');
         reloads.push({ id, bypassCache: !!options.bypassCache });
+      },
+      highlight: async ({ windowId, tabs: indices }) => {
+        if (!Array.isArray(indices) || indices.length === 0) throw new Error('no tabs to highlight');
+        highlights.push({ windowId, indices: [...indices] });
+        // The browser makes the first entry active and drops the rest of the
+        // previous selection.
+        strip.forEach((t) => {
+          t.highlighted = indices.includes(t.index);
+          t.active = t.index === indices[0];
+        });
       },
       duplicate: async (id) => {
         const from = strip.findIndex((t) => t.id === id);
@@ -123,12 +135,13 @@ async function withFakeChrome(initial, fn, options) {
   }
 }
 
-const settings = (sort = {}, duplicates = {}, reload = {}, watch = {}) => ({
+const settings = (sort = {}, duplicates = {}, reload = {}, watch = {}, select = {}) => ({
   scope: 'window',
   sort: { primary: 'domain', secondary: 'none', target: 'all', groupPlacement: 'interleave', groupOrderBy: 'tabs', ...sort },
   duplicates: { ...duplicates },
   reload: { delayMs: 0, ...reload },
-  watch: { onDuplicate: 'ignore', ...watch }
+  watch: { onDuplicate: 'ignore', ...watch },
+  select: { selection: 'all', field: 'domain', mode: 'contains', value: '', skipPinned: false, skipUnloaded: false, ...select }
 });
 
 test('sorting a flat strip reorders it', async () => {
@@ -466,6 +479,79 @@ test('duplicateActiveTab says so when there is no active tab', async () => {
       assert.equal(chrome._strip().length, 1);
     }
   );
+});
+
+const SELECT_STRIP = [
+  { id: 1, url: 'https://github.com/a', title: 'GH a', pinned: true, groupId: NONE, windowId: 1, active: false },
+  { id: 2, url: 'https://mozilla.org/x', title: 'MDN x', pinned: false, groupId: 5, windowId: 1, active: true },
+  { id: 3, url: 'https://mozilla.org/y', title: 'MDN y', pinned: false, groupId: 5, windowId: 1, active: false },
+  { id: 4, url: 'https://github.com/a', title: 'GH a', pinned: false, groupId: NONE, windowId: 1, active: false }
+];
+
+test('selecting highlights by index, not by tab id', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply, chrome) => {
+    const result = await apply.applySelection(
+      settings({}, {}, {}, {}, { selection: 'filter', field: 'domain', mode: 'contains', value: 'mozilla.org' })
+    );
+    assert.equal(result.selected, 2);
+    const [call] = chrome._highlights();
+    assert.equal(call.windowId, 1);
+    // Tabs 2 and 3 sit at indices 1 and 2 — ids would have been 2 and 3, which
+    // happens to differ, so this catches passing ids by mistake.
+    assert.deepEqual([...call.indices].sort(), [1, 2]);
+  });
+});
+
+test('the active tab leads the selection so focus does not jump', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply, chrome) => {
+    await apply.applySelection(
+      settings({}, {}, {}, {}, { selection: 'filter', field: 'domain', mode: 'contains', value: 'mozilla.org' })
+    );
+    const [call] = chrome._highlights();
+    assert.equal(call.indices[0], 1, 'the already-active tab should be first');
+    assert.equal(chrome._tabs().find((t) => t.active).id, 2, 'focus stayed put');
+  });
+});
+
+test('selecting duplicates picks the extra copies only', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply, chrome) => {
+    const preview = await apply.previewSelection(settings({}, {}, {}, {}, { selection: 'duplicates' }));
+    // Tabs 1 and 4 are the same URL; 1 is pinned so it is protected and kept.
+    assert.deepEqual(preview.tabs.map((t) => t.id), [4]);
+    await apply.applySelection(settings({}, {}, {}, {}, { selection: 'duplicates' }));
+    assert.deepEqual(chrome._highlights()[0].indices, [3]);
+  });
+});
+
+test('selecting can skip pinned tabs', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply) => {
+    const all = await apply.previewSelection(settings({}, {}, {}, {}, { selection: 'all' }));
+    assert.equal(all.count, 4);
+    const unpinned = await apply.previewSelection(
+      settings({}, {}, {}, {}, { selection: 'all', skipPinned: true })
+    );
+    assert.deepEqual(unpinned.tabs.map((t) => t.id), [2, 3, 4]);
+  });
+});
+
+test('an empty selection explains itself and highlights nothing', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply, chrome) => {
+    const result = await apply.applySelection(
+      settings({}, {}, {}, {}, { selection: 'filter', field: 'domain', mode: 'equals', value: 'nowhere.test' })
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.selected, 0);
+    assert.match(result.message, /No tabs match/);
+    assert.deepEqual(chrome._highlights(), [], 'highlight() must not be called with an empty list');
+  });
+});
+
+test('previewSelection changes nothing', async () => {
+  await withFakeChrome(SELECT_STRIP, async (apply, chrome) => {
+    await apply.previewSelection(settings({}, {}, {}, {}, { selection: 'all' }));
+    assert.deepEqual(chrome._highlights(), []);
+    assert.deepEqual(chrome._strip(), [1, 2, 3, 4]);
+  });
 });
 
 test('closeDuplicates reports when there is nothing to do', async () => {

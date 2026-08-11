@@ -1,6 +1,13 @@
 import { api } from './lib/browser.js';
 import { loadSettings } from './lib/settings.js';
-import { sortTabs, undoSort, closeDuplicates, reloadTabs, respondToNewTab } from './lib/apply.js';
+import {
+  sortTabs,
+  undoSort,
+  closeDuplicates,
+  reloadTabs,
+  respondToNewTab,
+  duplicateActiveTab
+} from './lib/apply.js';
 import { isBlankUrl } from './lib/duplicates.js';
 import { shouldEvaluate } from './lib/watch.js';
 
@@ -82,6 +89,14 @@ api.commands.onCommand.addListener(async (command) => {
   if (command === 'close-duplicates') return run(() => closeDuplicates(settings));
   if (command === 'reload-tabs') return run(() => reloadTabs(settings));
   if (command === 'undo-sort') return run(() => undoSort(settings));
+  if (command === 'duplicate-tab') {
+    return run(async () => {
+      // Deliberately making a copy, so the watch must not treat it as an
+      // accident and close it again the instant it appears.
+      await suppressWatch(1500);
+      return duplicateActiveTab();
+    });
+  }
   return undefined;
 });
 

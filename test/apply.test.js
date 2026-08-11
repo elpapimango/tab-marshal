@@ -15,6 +15,7 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
   const session = {};
   const reloads = [];
   const activated = [];
+  let nextId = 1000;
   const unreloadable = new Set(failReload);
   const reindex = () => strip.forEach((t, i) => (t.index = i));
 
@@ -39,6 +40,14 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
       reload: async (id, options = {}) => {
         if (unreloadable.has(id)) throw new Error('cannot reload this page');
         reloads.push({ id, bypassCache: !!options.bypassCache });
+      },
+      duplicate: async (id) => {
+        const from = strip.findIndex((t) => t.id === id);
+        if (from === -1) throw new Error(`no such tab ${id}`);
+        const copy = { ...strip[from], id: nextId++, active: false };
+        strip.splice(from + 1, 0, copy);
+        reindex();
+        return { ...copy };
       },
       get: async (id) => {
         const found = strip.find((t) => t.id === id);
@@ -423,6 +432,40 @@ test('a new tab that duplicates nothing survives', async () => {
     assert.equal(result.acted, false);
     assert.deepEqual(chrome._strip(), [1, 2, 3]);
   });
+});
+
+test('duplicateActiveTab copies the active tab next to it', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://a.com/', title: 'A', pinned: false, groupId: NONE, active: false },
+      { id: 2, url: 'https://b.com/', title: 'B', pinned: false, groupId: NONE, active: true },
+      { id: 3, url: 'https://c.com/', title: 'C', pinned: false, groupId: NONE, active: false }
+    ],
+    async (apply, chrome) => {
+      const result = await apply.duplicateActiveTab();
+      assert.equal(result.ok, true);
+      const strip = chrome._strip();
+      assert.equal(strip.length, 4);
+      assert.deepEqual(strip.slice(0, 2), [1, 2]);
+      assert.equal(strip[3], 3, 'the copy lands immediately after its original');
+
+      const copy = chrome._tabs()[2];
+      assert.equal(copy.url, 'https://b.com/', 'the copy points at the same page');
+      assert.notEqual(copy.id, 2);
+    }
+  );
+});
+
+test('duplicateActiveTab says so when there is no active tab', async () => {
+  await withFakeChrome(
+    [{ id: 1, url: 'https://a.com/', title: 'A', pinned: false, groupId: NONE, active: false }],
+    async (apply, chrome) => {
+      const result = await apply.duplicateActiveTab();
+      assert.equal(result.ok, false);
+      assert.match(result.message, /No active tab/);
+      assert.equal(chrome._strip().length, 1);
+    }
+  );
 });
 
 test('closeDuplicates reports when there is nothing to do', async () => {

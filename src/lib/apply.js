@@ -211,6 +211,19 @@ export async function reloadTabs(settings) {
 }
 
 /**
+ * Duplicate the active tab.
+ *
+ * Firefox has no built-in shortcut for this, which is the only reason the
+ * command exists; the API itself works everywhere.
+ */
+export async function duplicateActiveTab() {
+  const [active] = await api.tabs.query({ active: true, currentWindow: true });
+  if (!active) return { ok: false, message: 'No active tab to duplicate.' };
+  await api.tabs.duplicate(active.id);
+  return { ok: true, message: 'Duplicated the active tab.' };
+}
+
+/**
  * Decide and carry out what happens when a freshly opened tab duplicates one
  * that is already open. Called from the service worker for each new tab's first
  * committed URL; a no-op unless the user picked an action.

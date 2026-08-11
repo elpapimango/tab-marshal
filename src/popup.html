@@ -98,6 +98,24 @@
     </section>
 
     <section id="panel-dupes" class="panel">
+      <!-- Kept above the results, which grow and would otherwise push it out of sight. -->
+      <fieldset class="group-box">
+        <legend>Watch for duplicates</legend>
+        <div class="row stack">
+          <label for="onDuplicate">When a tab duplicates an open one, do</label>
+          <select id="onDuplicate"></select>
+        </div>
+        <div class="checks">
+          <label class="chk">
+            <input type="checkbox" id="includeNavigation" /> also when an existing tab navigates
+          </label>
+        </div>
+        <p class="hint" id="watch-hint">
+          Uses the match and protection settings below. A protected tab is never closed, and a tab
+          alone in its window is never closed either — that would close the window.
+        </p>
+      </fieldset>
+
       <div class="row">
         <label for="matchMode">Consider duplicate when</label>
         <select id="matchMode"></select>
@@ -130,23 +148,6 @@
       </div>
 
       <ul id="dupe-list" class="dupe-list"></ul>
-
-      <fieldset class="group-box">
-        <legend>Watch for duplicates</legend>
-        <div class="row stack">
-          <label for="onDuplicate">When a tab duplicates an open one, do</label>
-          <select id="onDuplicate"></select>
-        </div>
-        <div class="checks">
-          <label class="chk">
-            <input type="checkbox" id="includeNavigation" /> also when an existing tab navigates
-          </label>
-        </div>
-        <p class="hint" id="watch-hint">
-          Uses the match and protection settings above. A protected tab is never closed, and a tab
-          alone in its window is never closed either — that would close the window.
-        </p>
-      </fieldset>
     </section>
 
     <section id="panel-reload" class="panel">

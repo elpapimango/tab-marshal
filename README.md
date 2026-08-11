@@ -18,6 +18,7 @@ permanent install has to be signed through addons.mozilla.org.
 | | Edge / Chrome | Firefox |
 | --- | --- | --- |
 | Sorting, duplicates, reload, watch, themes | yes | yes |
+| Duplicate-tab shortcut | hidden — the browser already has one | offered, `Alt+Shift+K` |
 | Tab groups | yes | only where `tabGroups` exists — otherwise groups are simply absent, and every tab sorts as a loose one |
 | Favicons in the duplicate and reload lists | yes | yes |
 | Editing shortcuts from the Config tab | opens the browser's shortcuts page | Firefox refuses to let an extension open `about:addons`, so the tab shows the route instead |
@@ -144,8 +145,12 @@ Because this closes tabs on its own, it has guard rails:
   is judged, and a reload keeps the same URL.
 
 When the watch acts, the toolbar badge briefly shows `dup` so a tab never just disappears without
-explanation. Note that explicitly duplicating a tab counts as a new tab and will be caught — that
-is the point, but it is worth knowing before turning it on.
+explanation.
+
+Note that duplicating a tab **with the browser's own command** counts as a new tab and will be
+caught — that is the point, but it is worth knowing before turning it on. The extension's own
+duplicate-tab shortcut is exempt: it silences the watch for a moment around the copy, since asking
+for a duplicate and having it vanish would be absurd.
 
 ## Reload
 
@@ -208,7 +213,12 @@ The Config tab lists every command with its current binding, read live from `chr
 | Sort tabs with saved settings | `Alt+Shift+S` |
 | Close duplicate tabs | `Alt+Shift+D` |
 | Reload tabs with saved selection | `Alt+Shift+R` |
+| Duplicate the active tab (Firefox only) | `Alt+Shift+K` |
 | Undo last sort | unassigned |
+
+**Duplicate the active tab** exists because Firefox has no shortcut for it, while Edge and Chrome
+do. The Config tab only lists it on Firefox. Manifest commands are static, so the browser's own
+shortcuts page still shows it on Chromium — it works there too, it is just redundant.
 
 **Bindings can only be changed on the browser's own page.** `chrome.commands` is read-only —
 extensions can see their shortcuts but not set them, so "Change shortcuts…" just opens
@@ -254,7 +264,7 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-101 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+103 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,

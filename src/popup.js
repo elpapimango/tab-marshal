@@ -227,8 +227,8 @@ function refreshConditionalUi() {
   el.watchHint.textContent = !watching
     ? 'Duplicates are allowed; nothing happens automatically.'
     : el.includeNavigation.checked
-      ? 'Every tab is judged each time it navigates, using the match and protection settings above.'
-      : 'Each new tab is judged once, on the first page it loads, using the settings above.';
+      ? 'Every tab is judged each time it navigates, using the match and protection settings below.'
+      : 'Each new tab is judged once, on the first page it loads, using the settings below.';
 
   const usesFilter = el.selection.value === 'filter';
   el.filterRow.hidden = !usesFilter;
@@ -473,6 +473,13 @@ function applyTheme(choice) {
 
 const COMMAND_LABELS = { _execute_action: 'Open the Tab Sorter popup' };
 
+/**
+ * Commands that only earn their place on some browsers. Chrome and Edge both
+ * duplicate a tab on their own, so offering a shortcut for it there would be
+ * clutter; Firefox has no such shortcut, which is the only reason it exists.
+ */
+const COMMANDS_FOR_FIREFOX_ONLY = new Set(['duplicate-tab']);
+
 /** Shortcuts are read-only here — only the browser's own page can rebind them. */
 async function renderShortcuts() {
   let commands = [];
@@ -481,6 +488,10 @@ async function renderShortcuts() {
   } catch {
     el.shortcutList.replaceChildren();
     return;
+  }
+
+  if (!isFirefox()) {
+    commands = commands.filter((c) => !COMMANDS_FOR_FIREFOX_ONLY.has(c.name));
   }
 
   el.shortcutList.replaceChildren(

@@ -33,6 +33,7 @@ test('defaults are returned when nothing is stored', async () => {
     const settings = await loadSettings();
     assert.equal(settings.scope, 'window');
     assert.equal(settings.theme, 'system');
+    assert.equal(settings.menuIcons, true, 'menu glyphs are on unless turned off');
     assert.equal(settings.sort.primary, 'domain');
     assert.equal(settings.duplicates.matchMode, 'ignore-hash');
     assert.equal(settings.reload.selection, 'all');
@@ -72,6 +73,7 @@ test('a save/load round trip preserves every section', async () => {
     const settings = await loadSettings();
     settings.scope = 'all';
     settings.theme = 'ctp-frappe';
+    settings.menuIcons = false;
     settings.sort.primary = 'regex';
     settings.sort.regexPattern = '/issue/([A-Z]+)';
     settings.duplicates.keep = 'mru';
@@ -82,6 +84,7 @@ test('a save/load round trip preserves every section', async () => {
     const reloaded = await loadSettings();
     assert.equal(reloaded.scope, 'all');
     assert.equal(reloaded.theme, 'ctp-frappe');
+    assert.equal(reloaded.menuIcons, false, 'turning the glyphs off must survive a reload');
     assert.equal(reloaded.sort.regexPattern, '/issue/([A-Z]+)');
     assert.equal(reloaded.duplicates.keep, 'mru');
     assert.equal(reloaded.reload.value, 'github.com');

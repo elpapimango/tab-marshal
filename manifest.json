@@ -47,22 +47,22 @@
   },
   "commands": {
     "_execute_action": {
-      "description": "Open the Tab Marshal popup"
+      "description": "Open the popup"
     },
     "sort-tabs": {
-      "description": "Sort tabs using the saved settings",
+      "description": "Sort tabs (saved settings)",
       "suggested_key": {
         "default": "Alt+Shift+S"
       }
     },
     "close-duplicates": {
-      "description": "Close duplicate tabs using the saved settings",
+      "description": "Close duplicate tabs",
       "suggested_key": {
         "default": "Alt+Shift+D"
       }
     },
     "reload-tabs": {
-      "description": "Reload tabs using the saved selection",
+      "description": "Reload tabs (saved selection)",
       "suggested_key": {
         "default": "Alt+Shift+R"
       }
@@ -74,7 +74,7 @@
       }
     },
     "undo-sort": {
-      "description": "Undo the last sort"
+      "description": "Undo last sort"
     }
   }
 }

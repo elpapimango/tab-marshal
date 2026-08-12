@@ -41,8 +41,13 @@ function prefersDark() {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function buildMenus() {
+async function buildMenus() {
+  const settings = await loadSettings();
   const dark = prefersDark();
+  // Only Firefox renders custom menu icons, and only on submenu items. Chromium
+  // rejects unknown create() properties outright, so it is never handed the key.
+  const withIcons = isFirefox() && settings.menuIcons !== false;
+
   api.contextMenus.removeAll(() => {
     createMenuItem({ id: MENU_ROOT, title: 'Tab Marshal' });
     for (const item of MENU_ITEMS) {
@@ -50,9 +55,7 @@ function buildMenus() {
         id: item.id,
         parentId: MENU_ROOT,
         ...(item.type ? { type: item.type } : { title: item.title }),
-        // Only Firefox renders custom menu icons, and only on submenu items.
-        // Chromium rejects unknown properties outright, so it never sees this.
-        ...(isFirefox() && item.icon ? { icons: menuIconPaths(item.icon, dark) } : {})
+        ...(withIcons && item.icon ? { icons: menuIconPaths(item.icon, dark) } : {})
       });
     }
   });
@@ -62,6 +65,21 @@ function buildMenus() {
 if (typeof matchMedia === 'function') {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => buildMenus());
 }
+
+/**
+ * Rebuild when the icon preference changes.
+ *
+ * Settings are saved on every keystroke in a filter box, so this compares the
+ * one value that affects the menu rather than rebuilding on every write.
+ */
+api.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
+  const change = changes.tabSorterSettings;
+  if (!change) return;
+  const before = change.oldValue ? change.oldValue.menuIcons !== false : true;
+  const after = change.newValue ? change.newValue.menuIcons !== false : true;
+  if (before !== after) buildMenus();
+});
 
 /**
  * The same items appear on the toolbar icon and on a right-clicked tab. If a

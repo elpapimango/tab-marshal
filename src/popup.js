@@ -77,6 +77,8 @@ const el = {
   selectBtn: $('select'),
   selectList: $('select-list'),
   theme: $('theme'),
+  menuBox: $('menu-box'),
+  menuIcons: $('menuIcons'),
   shortcutList: $('shortcut-list'),
   openShortcuts: $('open-shortcuts'),
   shortcutsUrl: $('shortcuts-url'),
@@ -109,6 +111,9 @@ async function init() {
   applyTheme(settings.theme);
   applySettingsToUi();
   wireEvents();
+  // Menu glyphs are a Firefox-only feature; the control only appears where it
+  // does something.
+  el.menuBox.hidden = !isFirefox();
   renderAbout();
   await renderShortcuts();
   el.undo.disabled = !(await hasUndo(settings));
@@ -158,6 +163,7 @@ function applySettingsToUi() {
 
   el.scope.value = settings.scope;
   el.theme.value = settings.theme;
+  el.menuIcons.checked = settings.menuIcons !== false;
   el.primary.value = s.primary;
   el.secondary.value = s.secondary || 'none';
   el.direction.value = s.descending ? 'desc' : 'asc';
@@ -204,6 +210,7 @@ function readUi() {
   return {
     scope: el.scope.value,
     theme: el.theme.value,
+    menuIcons: el.menuIcons.checked,
     sort: {
       primary: el.primary.value,
       secondary: el.secondary.value,
@@ -594,9 +601,12 @@ async function renderShortcuts() {
     ...commands.map((command) => {
       const li = document.createElement('li');
 
+      const label = COMMAND_LABELS[command.name] || command.description || command.name;
       const name = document.createElement('span');
       name.className = 'shortcut-name';
-      name.textContent = COMMAND_LABELS[command.name] || command.description || command.name;
+      name.textContent = label;
+      // The row ellipsises if the label is long, so keep the full text reachable.
+      li.title = label;
       li.append(name);
 
       if (command.shortcut) {

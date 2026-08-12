@@ -365,6 +365,24 @@ body {
   border-bottom-color: var(--accent);
 }
 
+/*
+ * One scroll region for the panel bodies, so the title, the tabs and the status
+ * line stay put. Browser popups are capped at 600px tall; this keeps the whole
+ * window inside that even when a result list is long, and means a single
+ * scrollbar rather than one for the popup and another for the list.
+ */
+.panels {
+  max-height: 480px;
+  overflow-y: auto;
+  /*
+   * A thin scrollbar so the panels that do overflow lose as little of the right
+   * gutter as possible. Reserving the gutter on both edges would keep the
+   * margins even, but it costs 30px of width on every panel — enough to start
+   * truncating the shortcut labels in Config.
+   */
+  scrollbar-width: thin;
+}
+
 .panel {
   display: none;
   padding: 10px 12px 4px;
@@ -537,8 +555,6 @@ button.danger:not(:disabled) {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 190px;
-  overflow-y: auto;
   border-top: 1px solid var(--line);
 }
 

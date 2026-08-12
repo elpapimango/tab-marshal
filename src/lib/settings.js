@@ -12,6 +12,8 @@ export const DEFAULT_SETTINGS = {
   scope: 'window',
   /** A THEMES id from lib/theme.js. */
   theme: DEFAULT_THEME,
+  /** Glyphs on the context-menu entries. Firefox-only; ignored elsewhere. */
+  menuIcons: true,
   sort: { ...DEFAULT_SORT_OPTIONS },
   duplicates: { ...DEFAULT_DUPLICATE_OPTIONS },
   reload: { ...DEFAULT_RELOAD_OPTIONS },
@@ -37,6 +39,7 @@ export async function saveSettings(settings) {
   const clean = {
     scope: settings.scope,
     theme: settings.theme,
+    menuIcons: settings.menuIcons,
     sort: { ...settings.sort },
     duplicates: { ...settings.duplicates },
     reload: { ...settings.reload },

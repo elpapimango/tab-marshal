@@ -27,6 +27,7 @@
       <button class="tab-btn" data-panel="panel-config" role="tab">Config</button>
     </nav>
 
+    <main class="panels">
     <section id="panel-sort" class="panel is-active">
       <div class="row">
         <label for="primary">Sort tabs by</label>
@@ -235,14 +236,19 @@
       <fieldset class="group-box">
         <legend>Keyboard shortcuts</legend>
         <ul id="shortcut-list" class="shortcuts"></ul>
-        <p class="hint">
-          Browsers reserve shortcut editing for their own settings page — an extension can read its
-          bindings but not change them.
-        </p>
+        <p class="hint">Shortcuts can only be changed on the browser's own page.</p>
         <div class="actions">
           <button id="open-shortcuts">Change shortcuts…</button>
         </div>
         <p class="hint mono" id="shortcuts-url" hidden></p>
+      </fieldset>
+
+      <fieldset class="group-box" id="menu-box" hidden>
+        <legend>Context menu</legend>
+        <div class="checks">
+          <label class="chk"><input type="checkbox" id="menuIcons" /> show icons on menu entries</label>
+        </div>
+        <p class="hint">Glyphs follow the browser's light or dark scheme.</p>
       </fieldset>
 
       <fieldset class="group-box">
@@ -261,6 +267,8 @@
         </div>
       </fieldset>
     </section>
+
+    </main>
 
     <footer class="status" id="status" role="status" aria-live="polite"></footer>
 

@@ -212,6 +212,10 @@ failing the run.
 
 ## Config
 
+Panels scroll inside a fixed frame, so the title and the tab bar stay put however long a result
+list gets. Browser popups are capped at 600px tall and every panel now fits inside that, which also
+means one scrollbar rather than one for the popup and another for the list.
+
 ### Theme
 
 | Group | Light | Dark | Follows the browser |
@@ -282,7 +286,8 @@ toolbar menu — each item falls back rather than disappearing.
 The entries carry glyphs, in a pair per icon: dark ink for a light menu, pale ink for a dark one,
 chosen from `prefers-color-scheme` and rebuilt if the browser's scheme changes. Only Firefox renders
 custom menu icons, and only on submenu items — Chromium rejects unknown properties outright, so it
-is never handed the key at all.
+is never handed the key at all. **Config → Context menu** turns them off; that control only appears
+on Firefox, since nowhere else draws them.
 
 Menu and shortcut actions have no popup to report into, so the result flashes on the toolbar badge
 (`✓` / `!`).

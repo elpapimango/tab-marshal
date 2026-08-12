@@ -4,7 +4,7 @@
   "version": "1.1.0",
   "description": "Sort tabs and tab groups by domain, URL, title, recency or regex. Find and close duplicates, prevent new ones, and reload in bulk.",
   "author": "wienerworks",
-  "homepage_url": "https://github.com/elpapimango/tab-sorter",
+  "homepage_url": "https://github.com/elpapimango/tab-marshal",
   "minimum_chrome_version": "104",
   "permissions": [
     "tabs",

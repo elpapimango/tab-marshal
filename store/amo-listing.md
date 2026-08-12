@@ -70,7 +70,7 @@ PRIVACY
 
 No host permissions, no content scripts, and nothing about your browsing is sent anywhere. The only outbound requests are the favicons shown in the duplicate and reload lists, loaded from each site's own address with no referrer.
 
-Open source under the MIT licence: https://github.com/elpapimango/tab-sorter
+Open source under the MIT licence: https://github.com/elpapimango/tab-marshal
 
 ## Tags
 
@@ -87,7 +87,7 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 
 ## Support
 
-- Support site: `https://github.com/elpapimango/tab-sorter/issues`
+- Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
 ## Version notes (1.1.0)

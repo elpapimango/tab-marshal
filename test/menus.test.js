@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -13,8 +13,12 @@ import {
   MENU_ROOT,
   MENU_CONTEXTS,
   MENU_FALLBACK_CONTEXTS,
-  ANCHORED_ITEMS
+  MENU_ICONS,
+  ANCHORED_ITEMS,
+  menuIconPaths
 } from '../src/lib/menus.js';
+
+const repoFile = (rel) => fileURLToPath(new URL(`../${rel}`, import.meta.url));
 
 const BACKGROUND = readFileSync(fileURLToPath(new URL('../src/background.js', import.meta.url)), 'utf8');
 
@@ -82,5 +86,54 @@ test('anchored items pass the clicked tab through', () => {
     const block = BACKGROUND.slice(BACKGROUND.indexOf(`case '${id}'`));
     const upToNextCase = block.slice(0, block.indexOf('case ', 5));
     assert.match(upToNextCase, /anchor/, `"${id}" does not use the clicked tab`);
+  }
+});
+
+
+/* ---- menu icons ------------------------------------------------------- */
+
+test('every clickable item names a glyph that exists', () => {
+  for (const item of MENU_ITEMS) {
+    if (item.type === 'separator') continue;
+    assert.ok(item.icon, `${item.id} has no icon`);
+    assert.ok(MENU_ICONS.includes(item.icon), `${item.id} uses unknown glyph "${item.icon}"`);
+  }
+});
+
+test('both colour-scheme variants are on disk for every glyph', () => {
+  for (const icon of MENU_ICONS) {
+    for (const dark of [false, true]) {
+      const paths = menuIconPaths(icon, dark);
+      for (const size of Object.keys(paths)) {
+        assert.ok(
+          existsSync(repoFile(paths[size])),
+          `${paths[size]} is referenced but missing — run npm run icons:menu`
+        );
+      }
+    }
+  }
+});
+
+test('the two variants are different files, and named for the scheme they suit', () => {
+  for (const icon of MENU_ICONS) {
+    const light = menuIconPaths(icon, false)[16];
+    const dark = menuIconPaths(icon, true)[16];
+    assert.notEqual(light, dark, `${icon} would look identical in both schemes`);
+    assert.match(light, /-light\.svg$/);
+    assert.match(dark, /-dark\.svg$/);
+  }
+});
+
+test('the dark-scheme glyph is the light-coloured one', () => {
+  // Named for where it is used, not for its ink — easy to get backwards.
+  const onDarkMenu = readFileSync(repoFile(menuIconPaths('sort', true)[16]), 'utf8');
+  const onLightMenu = readFileSync(repoFile(menuIconPaths('sort', false)[16]), 'utf8');
+  assert.match(onDarkMenu, /stroke="#f/i, 'a dark menu needs pale ink');
+  assert.match(onLightMenu, /stroke="#1/i, 'a light menu needs dark ink');
+});
+
+test('separators carry no icon', () => {
+  for (const item of MENU_ITEMS) {
+    if (item.type === 'separator') assert.equal(menuIconPaths(item.icon, false), undefined);
   }
 });

@@ -92,7 +92,7 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.2.0)
+## Version notes (1.3.0)
 
     First public release.
 

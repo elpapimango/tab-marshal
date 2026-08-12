@@ -1,4 +1,4 @@
-import { api } from './lib/browser.js';
+import { api, isFirefox } from './lib/browser.js';
 import { loadSettings } from './lib/settings.js';
 import {
   sortTabs,
@@ -12,22 +12,56 @@ import {
 import { isBlankUrl } from './lib/duplicates.js';
 import { shouldEvaluate } from './lib/watch.js';
 import { getDomain } from './lib/keys.js';
-import { MENU_ROOT, MENU_ITEMS, MENU_CONTEXTS, MENU_FALLBACK_CONTEXTS } from './lib/menus.js';
+import {
+  MENU_ROOT,
+  MENU_ITEMS,
+  MENU_CONTEXTS,
+  MENU_FALLBACK_CONTEXTS,
+  menuIconPaths
+} from './lib/menus.js';
 
 api.runtime.onInstalled.addListener(() => {
   // An update reloads every tab's listeners; stay quiet through the churn.
   suppressWatch(5_000);
+  buildMenus();
+});
+
+// Menus do not survive a browser restart, and the colour scheme may have
+// changed while it was closed.
+api.runtime.onStartup.addListener(() => buildMenus());
+
+/**
+ * True when the browser is in a dark colour scheme.
+ *
+ * Firefox runs the background as an event page, which has a DOM and so can ask.
+ * A Chromium service worker has no matchMedia — and no menu icons either, so
+ * there is nothing to decide.
+ */
+function prefersDark() {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function buildMenus() {
+  const dark = prefersDark();
   api.contextMenus.removeAll(() => {
     createMenuItem({ id: MENU_ROOT, title: 'Tab Marshal' });
     for (const item of MENU_ITEMS) {
       createMenuItem({
         id: item.id,
         parentId: MENU_ROOT,
-        ...(item.type ? { type: item.type } : { title: item.title })
+        ...(item.type ? { type: item.type } : { title: item.title }),
+        // Only Firefox renders custom menu icons, and only on submenu items.
+        // Chromium rejects unknown properties outright, so it never sees this.
+        ...(isFirefox() && item.icon ? { icons: menuIconPaths(item.icon, dark) } : {})
       });
     }
   });
-});
+}
+
+// Repaint the glyphs if the scheme flips while the background page is alive.
+if (typeof matchMedia === 'function') {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => buildMenus());
+}
 
 /**
  * The same items appear on the toolbar icon and on a right-clicked tab. If a

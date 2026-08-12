@@ -279,6 +279,11 @@ Three entries act on the tab you right-clicked rather than the active one:
 Firefox and Chrome both document a `tab` context, but a browser that refuses it still gets the
 toolbar menu — each item falls back rather than disappearing.
 
+The entries carry glyphs, in a pair per icon: dark ink for a light menu, pale ink for a dark one,
+chosen from `prefers-color-scheme` and rebuilt if the browser's scheme changes. Only Firefox renders
+custom menu icons, and only on submenu items — Chromium rejects unknown properties outright, so it
+is never handed the key at all.
+
 Menu and shortcut actions have no popup to report into, so the result flashes on the toolbar badge
 (`✓` / `!`).
 
@@ -314,7 +319,7 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-124 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+129 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
@@ -325,7 +330,8 @@ it runs under plain Node with no browser stubs. `src/lib/apply.js` is the only p
 Icons are generated rather than checked in as hand-made binaries:
 
 ```bash
-npm run icons
+npm run icons        # toolbar PNGs
+npm run icons:menu   # context-menu SVGs, both colour schemes
 ```
 
 ### Packaging
@@ -368,6 +374,7 @@ src/lib/apply.js       reads windows, applies plans via chrome.*
 src/lib/settings.js    persisted settings
 test/                  node --test suites
 tools/make-icons.mjs   PNG icon generator
+tools/make-menu-icons.mjs  context-menu glyphs, light and dark
 tools/package.mjs      builds the store zip
 store/amo-listing.md   addons.mozilla.org submission text
 ```

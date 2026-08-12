@@ -66,6 +66,8 @@ export const DEFAULT_SELECT_OPTIONS = {
   mode: 'contains',
   value: '',
   caseSensitive: false,
+  /** Select everything the filter does NOT match. */
+  negate: false,
   skipPinned: false,
   /** Unlike reloading, selecting a sleeping tab costs nothing. */
   skipUnloaded: false
@@ -114,20 +116,32 @@ export function fieldValue(tab, field) {
 
 export function matchesFilter(tab, opts) {
   const haystack = fieldValue(tab, opts.field);
-  if (opts.mode === 'regex') return opts.compiledFilter ? opts.compiledFilter.test(haystack) : false;
+
+  if (opts.mode === 'regex') {
+    // No pattern means no selection — inverting nothing must not become
+    // "everything", which would be a very expensive misunderstanding.
+    if (!opts.compiledFilter) return false;
+    return flip(opts.compiledFilter.test(haystack), opts);
+  }
 
   if (!opts.value) return false; // an empty filter matches nothing, never everything
+
   const a = opts.caseSensitive ? haystack : haystack.toLowerCase();
   const b = opts.caseSensitive ? opts.value : opts.value.toLowerCase();
   switch (opts.mode) {
     case 'equals':
-      return a === b;
+      return flip(a === b, opts);
     case 'starts':
-      return a.startsWith(b);
+      return flip(a.startsWith(b), opts);
     case 'contains':
     default:
-      return a.includes(b);
+      return flip(a.includes(b), opts);
   }
+}
+
+/** `negate` turns the filter into "everything that does not match". */
+function flip(hit, opts) {
+  return opts.negate ? !hit : hit;
 }
 
 /**
@@ -170,6 +184,7 @@ export function explainEmpty(options, context = {}) {
     if (gid === undefined || gid === TAB_GROUP_ID_NONE) return 'The active tab is not in a tab group.';
   }
   if (opts.selection === 'filter' && !opts.value) return 'Enter a value to filter on.';
+  if (opts.selection === 'filter' && opts.negate) return 'Every tab matches, so nothing is left over.';
   if (opts.selection === 'duplicates') return 'No duplicate tabs in this window.';
   return 'No tabs match.';
 }

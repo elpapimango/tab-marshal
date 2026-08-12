@@ -1,0 +1,43 @@
+/**
+ * The context-menu tree. Pure data, so the ordering and ids can be tested
+ * without a browser.
+ *
+ * The same items serve two contexts: the toolbar icon, and a right-click on a
+ * tab. Firefox and Chrome both document a "tab" context, but a browser that
+ * rejects it must still get the toolbar menu — background.js falls back per
+ * item rather than losing the tree.
+ */
+
+export const MENU_ROOT = 'tab-marshal-root';
+export const MENU_CONTEXTS = ['action', 'tab'];
+export const MENU_FALLBACK_CONTEXTS = ['action'];
+
+/**
+ * `anchored: true` marks an item that acts on the tab that was right-clicked
+ * rather than on the active one.
+ */
+export const MENU_ITEMS = [
+  { id: 'sort-saved', title: 'Sort tabs (saved settings)' },
+  { id: 'sort-domain', title: 'Sort by domain' },
+  { id: 'sort-hostname', title: 'Sort by hostname' },
+  { id: 'sort-url', title: 'Sort by URL' },
+  { id: 'sort-title', title: 'Sort by title' },
+  { id: 'sort-recent', title: 'Sort by last accessed' },
+
+  { id: 'sep-select', type: 'separator' },
+  { id: 'select-saved', title: 'Select tabs (saved criteria)' },
+  { id: 'select-domain', title: 'Select tabs from this site', anchored: true },
+  { id: 'select-group', title: "Select this tab's group", anchored: true },
+  { id: 'select-duplicates', title: 'Select duplicate tabs' },
+
+  { id: 'sep-act', type: 'separator' },
+  { id: 'close-dupes', title: 'Close duplicate tabs' },
+  { id: 'reload-saved', title: 'Reload tabs (saved selection)' },
+  { id: 'reload-all', title: 'Reload all tabs' },
+
+  { id: 'sep-undo', type: 'separator' },
+  { id: 'undo', title: 'Undo last sort' }
+];
+
+/** Ids that need the right-clicked tab to mean anything. */
+export const ANCHORED_ITEMS = new Set(MENU_ITEMS.filter((i) => i.anchored).map((i) => i.id));

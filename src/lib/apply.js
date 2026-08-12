@@ -217,11 +217,15 @@ export async function reloadTabs(settings) {
  * makes its first entry active, so spanning windows would yank the focused tab
  * in every one of them.
  */
-export async function previewSelection(settings) {
+export async function previewSelection(settings, { tab: anchor } = {}) {
   const opts = prepareSelectOptions(settings.select);
-  const win = await api.windows.getCurrent();
-  const tabs = await api.tabs.query({ windowId: win.id });
-  const context = await reloadContext();
+  // A tab context menu acts on the tab that was right-clicked, which may be in
+  // another window and is often not the active one.
+  const windowId = anchor ? anchor.windowId : (await api.windows.getCurrent()).id;
+  const tabs = await api.tabs.query({ windowId });
+  const context = anchor
+    ? { activeTabId: anchor.id, activeGroupId: anchor.groupId ?? TAB_GROUP_ID_NONE }
+    : await reloadContext();
 
   let chosen;
   if (opts.selection === 'duplicates') {
@@ -232,7 +236,7 @@ export async function previewSelection(settings) {
   }
 
   return {
-    windowId: win.id,
+    windowId,
     tabs: chosen,
     count: chosen.length,
     reason: chosen.length ? '' : explainEmpty(opts, context)
@@ -240,8 +244,8 @@ export async function previewSelection(settings) {
 }
 
 /** Highlight the selection in the tab strip, changing nothing else. */
-export async function applySelection(settings) {
-  const { windowId, tabs, count, reason } = await previewSelection(settings);
+export async function applySelection(settings, context = {}) {
+  const { windowId, tabs, count, reason } = await previewSelection(settings, context);
   if (!count) return { ok: false, selected: 0, message: reason };
 
   // highlight() takes indices, not ids, and makes the first one active. Leading

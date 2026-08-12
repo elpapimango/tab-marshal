@@ -554,6 +554,32 @@ test('previewSelection changes nothing', async () => {
   });
 });
 
+test('a tab context menu selects around the right-clicked tab, not the active one', async () => {
+  const strip = [
+    { id: 1, url: 'https://a.com/', title: 'A', pinned: false, groupId: NONE, windowId: 1, active: true },
+    { id: 2, url: 'https://b.com/1', title: 'B1', pinned: false, groupId: 9, windowId: 1, active: false },
+    { id: 3, url: 'https://b.com/2', title: 'B2', pinned: false, groupId: 9, windowId: 1, active: false },
+    { id: 4, url: 'https://c.com/', title: 'C', pinned: false, groupId: NONE, windowId: 1, active: false }
+  ];
+  await withFakeChrome(strip, async (apply, chrome) => {
+    // The active tab (1) is ungrouped, so "the group" only resolves if the
+    // right-clicked tab is used as the anchor.
+    const anchored = await apply.previewSelection(
+      settings({}, {}, {}, {}, { selection: 'group' }),
+      { tab: { id: 3, windowId: 1, groupId: 9 } }
+    );
+    assert.deepEqual(anchored.tabs.map((t) => t.id), [2, 3]);
+
+    const unanchored = await apply.previewSelection(settings({}, {}, {}, {}, { selection: 'group' }));
+    assert.deepEqual(unanchored.tabs, [], 'without an anchor it falls back to the active tab');
+
+    await apply.applySelection(settings({}, {}, {}, {}, { selection: 'group' }), {
+      tab: { id: 3, windowId: 1, groupId: 9 }
+    });
+    assert.deepEqual(chrome._highlights()[0].indices, [1, 2]);
+  });
+});
+
 test('closeDuplicates reports when there is nothing to do', async () => {
   await withFakeChrome(
     [

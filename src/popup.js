@@ -72,6 +72,7 @@ const el = {
   selMode: $('selMode'),
   selValue: $('selValue'),
   selCaseSensitive: $('selCaseSensitive'),
+  selNegate: $('selNegate'),
   selSkipPinned: $('selSkipPinned'),
   selectBtn: $('select'),
   selectList: $('select-list'),
@@ -193,6 +194,7 @@ function applySettingsToUi() {
   el.selMode.value = sel.mode;
   el.selValue.value = sel.value || '';
   el.selCaseSensitive.checked = !!sel.caseSensitive;
+  el.selNegate.checked = !!sel.negate;
   el.selSkipPinned.checked = !!sel.skipPinned;
 
   refreshConditionalUi();
@@ -244,6 +246,7 @@ function readUi() {
       mode: el.selMode.value,
       value: el.selValue.value,
       caseSensitive: el.selCaseSensitive.checked,
+      negate: el.selNegate.checked,
       skipPinned: el.selSkipPinned.checked,
       skipUnloaded: false
     }

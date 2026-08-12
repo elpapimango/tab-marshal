@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { selectTabs, matchesFilter, prepareReloadOptions, explainEmpty } from '../src/lib/select.js';
+import {
+  selectTabs,
+  matchesFilter,
+  prepareReloadOptions,
+  prepareSelectOptions,
+  explainEmpty
+} from '../src/lib/select.js';
 
 const NONE = -1;
 
@@ -122,4 +128,50 @@ test('an empty filter value matches nothing rather than everything', () => {
   assert.deepEqual(selectTabs(SAMPLE, o), []);
   assert.equal(matchesFilter(SAMPLE[0], { field: 'url', mode: 'contains', value: '' }), false);
   assert.match(explainEmpty({ selection: 'filter', value: '' }), /Enter a value/);
+});
+
+
+/* ---- inverted filters ------------------------------------------------- */
+
+const sel = (o) => prepareSelectOptions(o);
+
+test('negate selects everything the filter does not match', () => {
+  const plain = sel({ selection: 'filter', field: 'domain', mode: 'equals', value: 'github.com' });
+  const inverted = sel({ selection: 'filter', field: 'domain', mode: 'equals', value: 'github.com', negate: true });
+
+  const hit = selectTabs(SAMPLE, plain).map((t) => t.id);
+  const miss = selectTabs(SAMPLE, inverted).map((t) => t.id);
+
+  assert.deepEqual(hit, [1, 2]);
+  assert.deepEqual(miss, [3, 4, 5]);
+  // Together they account for every tab, and never overlap.
+  assert.deepEqual([...hit, ...miss].sort((a, b) => a - b), SAMPLE.map((t) => t.id));
+});
+
+test('negate works with every filter mode', () => {
+  const ids = (o) => selectTabs(SAMPLE, sel({ selection: 'filter', ...o })).map((t) => t.id);
+  for (const mode of ['contains', 'equals', 'starts', 'regex']) {
+    const value = mode === 'regex' ? 'github\\.com' : 'github.com';
+    const yes = ids({ field: 'domain', mode, value });
+    const no = ids({ field: 'domain', mode, value, negate: true });
+    assert.ok(yes.length > 0, `${mode} matched nothing to invert`);
+    assert.equal(
+      yes.some((id) => no.includes(id)),
+      false,
+      `${mode}: a tab appears in both the matched and inverted sets`
+    );
+  }
+});
+
+test('an empty filter still matches nothing when inverted', () => {
+  // Otherwise "invert" on an unfilled box would silently select every tab.
+  const o = sel({ selection: 'filter', field: 'domain', mode: 'contains', value: '', negate: true });
+  assert.deepEqual(selectTabs(SAMPLE, o), []);
+  assert.equal(matchesFilter(SAMPLE[0], { field: 'domain', mode: 'contains', value: '', negate: true }), false);
+});
+
+test('inverting a filter that matches everything explains the empty result', () => {
+  const o = { selection: 'filter', field: 'url', mode: 'contains', value: 'https', negate: true };
+  assert.equal(selectTabs(SAMPLE, sel(o)).length, 0);
+  assert.match(explainEmpty(o), /Every tab matches/);
 });

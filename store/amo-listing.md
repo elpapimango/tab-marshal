@@ -50,7 +50,9 @@ Sorting is undoable — one click restores the order from immediately before.
 
 SELECTING
 
-Every other panel does something to the tabs it picks. Select picks them and stops, leaving them highlighted in the tab strip so the browser's own right-click menu can take over — move to a new window, add to a group, bookmark, close, whatever it offers for a multi-tab selection. Pick by the same filter Reload uses, by tab group, by everything, or by "the duplicate copies".
+Every other panel does something to the tabs it picks. Select picks them and stops, leaving them highlighted in the tab strip so the browser's own right-click menu can take over — move to a new window, add to a group, bookmark, close, whatever it offers for a multi-tab selection. Pick by the same filter Reload uses, by tab group, by everything, or by "the duplicate copies". Invert the filter to select everything that does not match.
+
+Most of this is also on the tab's own right-click menu, including "select every tab from this site".
 
 DUPLICATES
 
@@ -90,14 +92,15 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.1.0)
+## Version notes (1.2.0)
 
     First public release.
 
     Sort tabs and tab groups by domain, hostname, URL, host + path, title, recency or a regular
     expression. Select tabs in bulk and hand them to the browser's own right-click menu. Find and
     close duplicates, or catch them as they open. Reload tabs by filter, group or all at once. Ten
-    themes, and keyboard shortcuts for everything.
+    themes, and keyboard shortcuts for everything. Most actions are also on the tab's own
+    right-click menu.
 
 ## Screenshots
 

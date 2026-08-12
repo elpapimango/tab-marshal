@@ -6,77 +6,92 @@ import {
   closeDuplicates,
   reloadTabs,
   respondToNewTab,
-  duplicateActiveTab
+  duplicateActiveTab,
+  applySelection
 } from './lib/apply.js';
 import { isBlankUrl } from './lib/duplicates.js';
 import { shouldEvaluate } from './lib/watch.js';
-
-const MENU = {
-  sortSaved: 'sort-saved',
-  sortDomain: 'sort-domain',
-  sortHostname: 'sort-hostname',
-  sortUrl: 'sort-url',
-  sortTitle: 'sort-title',
-  sortRecent: 'sort-recent',
-  closeDupes: 'close-dupes',
-  reloadSaved: 'reload-saved',
-  reloadAll: 'reload-all',
-  undo: 'undo'
-};
+import { getDomain } from './lib/keys.js';
+import { MENU_ROOT, MENU_ITEMS, MENU_CONTEXTS, MENU_FALLBACK_CONTEXTS } from './lib/menus.js';
 
 api.runtime.onInstalled.addListener(() => {
   // An update reloads every tab's listeners; stay quiet through the churn.
   suppressWatch(5_000);
   api.contextMenus.removeAll(() => {
-    const parent = api.contextMenus.create({
-      id: 'tab-marshal-root',
-      title: 'Tab Marshal',
-      contexts: ['action']
-    });
-    const add = (id, title) =>
-      api.contextMenus.create({ id, title, parentId: parent, contexts: ['action'] });
-
-    add(MENU.sortSaved, 'Sort tabs (saved settings)');
-    add(MENU.sortDomain, 'Sort by domain');
-    add(MENU.sortHostname, 'Sort by hostname');
-    add(MENU.sortUrl, 'Sort by URL');
-    add(MENU.sortTitle, 'Sort by title');
-    add(MENU.sortRecent, 'Sort by last accessed');
-    add(MENU.closeDupes, 'Close duplicate tabs');
-    add(MENU.reloadSaved, 'Reload tabs (saved selection)');
-    add(MENU.reloadAll, 'Reload all tabs');
-    add(MENU.undo, 'Undo last sort');
+    createMenuItem({ id: MENU_ROOT, title: 'Tab Marshal' });
+    for (const item of MENU_ITEMS) {
+      createMenuItem({
+        id: item.id,
+        parentId: MENU_ROOT,
+        ...(item.type ? { type: item.type } : { title: item.title })
+      });
+    }
   });
 });
 
-api.contextMenus.onClicked.addListener(async (info) => {
+/**
+ * The same items appear on the toolbar icon and on a right-clicked tab. If a
+ * browser rejects the "tab" context, retry with just the toolbar one rather
+ * than dropping the item entirely.
+ */
+function createMenuItem(props) {
+  api.contextMenus.create({ ...props, contexts: MENU_CONTEXTS }, () => {
+    if (api.runtime.lastError) {
+      api.contextMenus.create({ ...props, contexts: MENU_FALLBACK_CONTEXTS });
+    }
+  });
+}
+
+api.contextMenus.onClicked.addListener(async (info, tab) => {
   const settings = await loadSettings();
   const oneOff = (primary, extra = {}) => ({
     ...settings,
     sort: { ...settings.sort, primary, target: 'all', ...extra }
   });
+  // On a tab context menu this is the tab that was right-clicked, which is not
+  // necessarily the active one.
+  const anchor = tab ? { tab } : {};
+  const withSelect = (patch) => ({ ...settings, select: { ...settings.select, ...patch } });
 
   switch (info.menuItemId) {
-    case MENU.sortSaved:
+    case 'sort-saved':
       return run(() => sortTabs(settings));
-    case MENU.sortDomain:
+    case 'sort-domain':
       return run(() => sortTabs(oneOff('domain')));
-    case MENU.sortHostname:
+    case 'sort-hostname':
       return run(() => sortTabs(oneOff('hostname')));
-    case MENU.sortUrl:
+    case 'sort-url':
       return run(() => sortTabs(oneOff('url')));
-    case MENU.sortTitle:
+    case 'sort-title':
       return run(() => sortTabs(oneOff('title')));
-    case MENU.sortRecent:
+    case 'sort-recent':
       // Most recently used first is the useful direction here.
       return run(() => sortTabs(oneOff('lastAccessed', { descending: true })));
-    case MENU.closeDupes:
+
+    case 'select-saved':
+      return run(() => applySelection(settings, anchor));
+    case 'select-domain': {
+      const domain = getDomain(tab && tab.url);
+      if (!domain) return undefined;
+      return run(() =>
+        applySelection(
+          withSelect({ selection: 'filter', field: 'domain', mode: 'equals', value: domain, negate: false }),
+          anchor
+        )
+      );
+    }
+    case 'select-group':
+      return run(() => applySelection(withSelect({ selection: 'group' }), anchor));
+    case 'select-duplicates':
+      return run(() => applySelection(withSelect({ selection: 'duplicates' }), anchor));
+
+    case 'close-dupes':
       return run(() => closeDuplicates(settings));
-    case MENU.reloadSaved:
+    case 'reload-saved':
       return run(() => reloadTabs(settings));
-    case MENU.reloadAll:
+    case 'reload-all':
       return run(() => reloadTabs({ ...settings, reload: { ...settings.reload, selection: 'all' } }));
-    case MENU.undo:
+    case 'undo':
       return run(() => undoSort(settings));
     default:
       return undefined;

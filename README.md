@@ -99,6 +99,10 @@ multi-tab selection.
 | The active tab's group | The tab group the current tab is in |
 | Duplicate tabs | The extra copies — exactly the tabs *Close duplicates* would remove, using the same match and protection settings |
 
+**Invert** turns the filter into "everything that does *not* match" — select every tab except the
+docs, then close or move them in one go. It composes with all four comparisons. An empty filter box
+still selects nothing when inverted, rather than quietly meaning "everything".
+
 Pinned tabs can be skipped. The button carries a live count, and the matching tabs are listed below
 it before you commit to anything.
 
@@ -260,9 +264,22 @@ open that page, the address is shown for copying instead.
 
 ## Menu
 
-Right-clicking the toolbar icon offers the saved sort, one-off sorts by domain, hostname, URL, title
-and last accessed, the saved reload selection, "reload all tabs", closing duplicates, and undo.
-Shortcut and menu actions have no popup to report into, so the result flashes on the toolbar badge
+The same menu hangs off two places: the toolbar icon, and a **right-click on any tab**. It offers
+the saved sort, one-off sorts by domain, hostname, URL, title and last accessed, four ways to
+select, closing duplicates, reloading, and undo.
+
+Three entries act on the tab you right-clicked rather than the active one:
+
+| Entry | Acts on |
+| --- | --- |
+| Select tabs from this site | Every tab on that tab's domain |
+| Select this tab's group | That tab's group, even if it is not the active tab |
+| *(others)* | The window, using the saved settings |
+
+Firefox and Chrome both document a `tab` context, but a browser that refuses it still gets the
+toolbar menu — each item falls back rather than disappearing.
+
+Menu and shortcut actions have no popup to report into, so the result flashes on the toolbar badge
 (`✓` / `!`).
 
 ## Scope
@@ -297,7 +314,7 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-112 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+124 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
 strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
 logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
@@ -343,6 +360,7 @@ src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters, shared by Select and Reload (pure)
+src/lib/menus.js       the context-menu tree (pure)
 src/lib/watch.js       when to judge a tab, and what to do about a duplicate (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
 src/lib/browser.js     browser.* / chrome.* namespace shim

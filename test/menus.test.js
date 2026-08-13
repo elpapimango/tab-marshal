@@ -137,3 +137,13 @@ test('separators carry no icon', () => {
     if (item.type === 'separator') assert.equal(menuIconPaths(item.icon, false), undefined);
   }
 });
+
+/* ---- release hygiene --------------------------------------------------- */
+
+test('manifest and package.json carry the same version', () => {
+  // They drifted once already: a release bumped the manifest and left
+  // package.json a version behind, which the zip filename is built from.
+  const manifest = JSON.parse(readFileSync(repoFile('manifest.json'), 'utf8'));
+  const pkg = JSON.parse(readFileSync(repoFile('package.json'), 'utf8'));
+  assert.equal(pkg.version, manifest.version);
+});

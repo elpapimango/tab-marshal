@@ -603,6 +603,88 @@ test('a tab context menu selects around the right-clicked tab, not the active on
   });
 });
 
+/* ---- Zen spaces: hidden tabs belong to another space -------------------- */
+
+test('sorting leaves hidden tabs where they are', async () => {
+  // H2 and H4 stand in for another Zen space: same window, hidden, holding
+  // strip slots 1 and 3.
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://zebra.com/', title: 'z', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://other-space.com/a', title: 'H', pinned: false, groupId: NONE, hidden: true },
+      { id: 3, url: 'https://apple.com/', title: 'a', pinned: false, groupId: NONE },
+      { id: 4, url: 'https://other-space.com/b', title: 'H', pinned: false, groupId: NONE, hidden: true },
+      { id: 5, url: 'https://mango.com/', title: 'm', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      const strip = chrome._tabs();
+      const visibleOrder = strip.filter((t) => !t.hidden).map((t) => t.id);
+      const hiddenOrder = strip.filter((t) => t.hidden).map((t) => t.id);
+
+      assert.deepEqual(visibleOrder, [3, 5, 1], 'the visible tabs sort by domain');
+      assert.deepEqual(hiddenOrder, [2, 4], 'the other space keeps its own order');
+      assert.equal(strip.length, 5, 'nothing was dropped');
+    }
+  );
+});
+
+test('a hidden tab is never counted, closed or reloaded', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://a.com/x', title: 'A', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://a.com/x', title: 'A', pinned: false, groupId: NONE, hidden: true },
+      { id: 3, url: 'https://a.com/x', title: 'A', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      // Three copies of one URL, but one is in another space.
+      const preview = await apply.previewDuplicates(settings());
+      assert.deepEqual(preview.closeIds, [3], 'only the visible copy is a duplicate');
+
+      await apply.closeDuplicates(settings());
+      assert.deepEqual(chrome._strip(), [1, 2], "the other space's tab survives");
+
+      await apply.reloadTabs(settings({}, {}, { selection: 'all' }));
+      assert.deepEqual(chrome._reloads().map((r) => r.id), [1], 'and is never reloaded');
+    }
+  );
+});
+
+test('undo puts the visible tabs back without disturbing the hidden ones', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://c.com/', title: 'c', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://other-space.com/', title: 'H', pinned: false, groupId: NONE, hidden: true },
+      { id: 3, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE },
+      { id: 4, url: 'https://b.com/', title: 'b', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      const before = chrome._tabs().filter((t) => !t.hidden).map((t) => t.id);
+      await apply.sortTabs(settings());
+      assert.notDeepEqual(chrome._tabs().filter((t) => !t.hidden).map((t) => t.id), before);
+
+      await apply.undoSort(settings());
+      assert.deepEqual(chrome._tabs().filter((t) => !t.hidden).map((t) => t.id), before);
+      assert.equal(chrome._tabs().filter((t) => t.hidden).length, 1, 'the hidden tab is still there');
+    }
+  );
+});
+
+test('with no hidden tabs the strip is packed exactly as before', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://zebra.com/', title: 'z', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://apple.com/', title: 'a', pinned: false, groupId: NONE },
+      { id: 3, url: 'https://mango.com/', title: 'm', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      assert.deepEqual(chrome._strip(), [2, 3, 1]);
+      assert.deepEqual(chrome._tabs().map((t) => t.index), [0, 1, 2], 'still consecutive');
+    }
+  );
+});
+
 test('closeDuplicates reports when there is nothing to do', async () => {
   await withFakeChrome(
     [

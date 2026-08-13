@@ -36,6 +36,27 @@ fork this, since the ID is permanent once an add-on is published.
 The Firefox minimum is 140 because `data_collection_permissions` — required on new add-ons, and
 declared here as `none` — only exists from 140, and `tabGroups` only from 139.
 
+## Zen spaces
+
+Zen keeps every space's tabs in one window and hides the ones belonging to other spaces. Tab Marshal
+never touches a hidden tab, so sorting, duplicates, reload and select all stay inside the space you
+are looking at, and your other spaces keep both their place in the strip and their own order.
+
+Sorting reuses exactly the strip positions the visible tabs already occupy rather than packing them
+to the front, so a hidden tab is never stepped over. Without hidden tabs those positions are
+0, 1, 2 … and the behaviour is identical to before.
+
+Two things worth being straight about:
+
+- **`nsZenWorkspaces` is not usable here.** It is Zen's internal browser-chrome controller, and a
+  WebExtension has no access to privileged browser internals — there is no supported API that names
+  a space, lists them, or targets one. What makes this work is the hidden-tab rule above, which
+  needs no Zen-specific API at all.
+- **The rule is not gated on detecting Zen**, because acting only on tabs the user can see is right
+  everywhere — on Firefox another extension can hide tabs too, and on Chromium there are none, so it
+  costs nothing. Detection (`runtime.getBrowserInfo()`) is used only to show a note in the Sort
+  panel confirming what is happening.
+
 ## Sorting
 
 Pick a **primary** criterion, an optional **secondary** tiebreaker, and a direction:
@@ -362,7 +383,7 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-146 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+151 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
 Auto-group rule planner, the new-tab watch, theme resolution, settings round-trips, and `apply.js`
 driven against a fake tab strip (group contiguity, idempotence, undo, closing duplicates,
 reloading, grouping, every watch action). The logic in `src/lib/keys.js`, `src/lib/sorter.js`,

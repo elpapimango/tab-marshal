@@ -21,10 +21,26 @@ async function getWindowIds(scope) {
   return [win.id];
 }
 
+/**
+ * Tabs the user can actually see.
+ *
+ * Zen keeps every space's tabs in one window and hides the ones belonging to
+ * other spaces, so a hidden tab is somebody else's space (or a tab another
+ * extension hid). Acting on it would reach outside the strip in front of the
+ * user, so nothing here ever does. On a browser with no hidden tabs this is a
+ * no-op, which is why it needs no Zen detection to be correct.
+ */
+function visible(tabs) {
+  return tabs.filter((t) => t.hidden !== true);
+}
+
 async function readWindow(windowId) {
-  const tabs = await api.tabs.query({ windowId });
+  const all = (await api.tabs.query({ windowId })).sort((a, b) => a.index - b.index);
+  const tabs = visible(all);
   const groups = hasTabGroups() ? await api.tabGroups.query({ windowId }) : [];
-  return { tabs: tabs.sort((a, b) => a.index - b.index), groups };
+  // The strip positions those tabs occupy. Sorting reuses exactly these, so a
+  // hidden tab keeps its place and other spaces keep their own order.
+  return { tabs, groups, slots: tabs.map((t) => t.index), hidden: all.length - tabs.length };
 }
 
 /**
@@ -33,35 +49,41 @@ async function readWindow(windowId) {
  * tabs, and group members are only ever rearranged inside their own range —
  * which is what keeps groups contiguous.
  */
-async function applyPlan(plan) {
-  let cursor = 0;
+async function applyPlan(plan, slots) {
+  let step = 0;
   let moves = 0;
+  // Without hidden tabs the slots are 0,1,2… and this is the plain cursor it
+  // has always been. With them, the plan is poured back into the positions the
+  // sortable tabs already held, so nothing lands on a hidden tab's slot.
+  const nextSlot = () => (slots ? slots[step] : step);
 
   for (const tabId of plan.pinned) {
-    await moveTab(tabId, cursor++);
+    await moveTab(tabId, nextSlot());
+    step++;
     moves++;
   }
 
   for (const block of plan.blocks) {
     if (block.kind === 'tab') {
-      await moveTab(block.tabId, cursor);
-      cursor += 1;
+      await moveTab(block.tabId, nextSlot());
+      step++;
       moves++;
       continue;
     }
+    const groupStart = nextSlot();
     if (hasTabGroups()) {
       try {
-        await api.tabGroups.move(block.groupId, { index: cursor });
+        await api.tabGroups.move(block.groupId, { index: groupStart });
       } catch {
         // The group may have been dissolved between reading and applying;
         // moving the member tabs below still produces the right order.
       }
     }
-    for (let i = 0; i < block.tabIds.length; i++) {
-      await moveTab(block.tabIds[i], cursor + i);
+    for (const tabId of block.tabIds) {
+      await moveTab(tabId, nextSlot());
+      step++;
       moves++;
     }
-    cursor += block.tabIds.length;
   }
   return moves;
 }
@@ -93,11 +115,11 @@ export async function sortTabs(settings) {
   let tabCount = 0;
 
   for (const windowId of windowIds) {
-    const { tabs, groups } = await readWindow(windowId);
+    const { tabs, groups, slots } = await readWindow(windowId);
     if (tabs.length < 2) continue;
     await saveUndoSnapshot(windowId, tabs);
     const plan = planSort(tabs, groups, opts);
-    await applyPlan(plan);
+    await applyPlan(plan, slots);
     tabCount += tabs.length;
   }
 
@@ -113,10 +135,13 @@ export async function undoSort(settings) {
 
   for (const windowId of windowIds) {
     const { snapshot } = store[windowId];
-    const live = await api.tabs.query({ windowId });
+    const live = visible(await api.tabs.query({ windowId })).sort((a, b) => a.index - b.index);
     const liveIds = new Set(live.map((t) => t.id));
     const restorable = snapshot.filter((t) => liveIds.has(t.id));
-    await applyPlan(planFromSnapshot(restorable));
+    const restorableIds = new Set(restorable.map((t) => t.id));
+    // Put them back in the same slots they occupy now, for the same reason.
+    const slots = live.filter((t) => restorableIds.has(t.id)).map((t) => t.index);
+    await applyPlan(planFromSnapshot(restorable), slots);
     delete store[windowId];
   }
   await api.storage.session.set({ [UNDO_KEY]: store });
@@ -221,9 +246,11 @@ export async function applyAutoGroupTab(tab, settings) {
 }
 
 async function queryScopedTabs(scope) {
-  if (scope === 'all') return api.tabs.query({ windowType: 'normal' });
+  // Every panel goes through here, so the "only tabs you can see" rule holds
+  // for duplicates, reload and select as well as for sorting.
+  if (scope === 'all') return visible(await api.tabs.query({ windowType: 'normal' }));
   const win = await api.windows.getCurrent();
-  return api.tabs.query({ windowId: win.id });
+  return visible(await api.tabs.query({ windowId: win.id }));
 }
 
 /** Find duplicates without touching anything. */

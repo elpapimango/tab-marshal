@@ -1,4 +1,4 @@
-import { api, isFirefox, hasTabGroups } from './lib/browser.js';
+import { api, isFirefox, isZen, hasTabGroups } from './lib/browser.js';
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
 import { DUPLICATE_ACTIONS } from './lib/watch.js';
@@ -85,6 +85,7 @@ const el = {
   groupUnsupportedHint: $('group-unsupported-hint'),
   theme: $('theme'),
   menuBox: $('menu-box'),
+  zenHint: $('zen-hint'),
   menuIcons: $('menuIcons'),
   shortcutList: $('shortcut-list'),
   openShortcuts: $('open-shortcuts'),
@@ -124,6 +125,10 @@ async function init() {
   // Menu glyphs are a Firefox-only feature; the control only appears where it
   // does something.
   el.menuBox.hidden = !isFirefox();
+  // Zen keeps other spaces' tabs in the same window; say so where it matters.
+  isZen().then((zen) => {
+    el.zenHint.hidden = !zen;
+  });
   // Tab groups need Chrome/Edge or Firefox 139+; grouping is a no-op elsewhere.
   const groupsSupported = hasTabGroups();
   el.groupNow.disabled = !groupsSupported;

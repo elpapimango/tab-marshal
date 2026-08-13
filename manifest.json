@@ -56,10 +56,7 @@
       }
     },
     "group-tabs": {
-      "description": "Group tabs (saved rules)",
-      "suggested_key": {
-        "default": "Alt+Shift+G"
-      }
+      "description": "Group tabs (saved rules)"
     },
     "close-duplicates": {
       "description": "Close duplicate tabs",

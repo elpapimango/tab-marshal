@@ -142,8 +142,10 @@ Two ways to run it:
   hand.
 
 Pinned tabs are skipped — Chrome unpins a tab the moment it joins a group, which would be a
-surprising side effect of a rule. `Alt+Shift+G` runs the saved rules, and the same action is on the
-right-click menu as **Group tabs (saved rules)**.
+surprising side effect of a rule. The same action is on the right-click menu as **Group tabs
+(saved rules)**, and has a command Chrome/Edge's shortcuts page can bind a key to — it ships
+unassigned since Chromium caps `suggested_key` at four commands and the other four were already
+spoken for (see [Keyboard shortcuts](#keyboard-shortcuts)).
 
 ## Duplicates
 
@@ -279,11 +281,16 @@ The Config tab lists every command with its current binding, read live from `chr
 | --- | --- |
 | Open the Tab Marshal popup | unassigned |
 | Sort tabs with saved settings | `Alt+Shift+S` |
-| Group tabs with saved rules | `Alt+Shift+G` |
+| Group tabs with saved rules | unassigned |
 | Close duplicate tabs | `Alt+Shift+D` |
 | Reload tabs with saved selection | `Alt+Shift+R` |
 | Duplicate the active tab (Firefox only) | `Alt+Shift+K` |
 | Undo last sort | unassigned |
+
+Chrome and Edge cap `suggested_key` at four commands per extension — sort, close-duplicates,
+reload-tabs and duplicate-tab already claim all four, so **Group tabs with saved rules** ships
+unassigned rather than bumping one of the existing bindings. Bind it from the browser's shortcuts
+page if you want one.
 
 **Duplicate the active tab** exists because Firefox has no shortcut for it, while Edge and Chrome
 do. The Config tab only lists it on Firefox. Manifest commands are static, so the browser's own

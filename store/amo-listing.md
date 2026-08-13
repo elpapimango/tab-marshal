@@ -102,7 +102,9 @@ statement that the add-on transmits no user data. Leave the field blank unless A
     pointing at a named, coloured tab group, and either group new tabs live as they open or run
     "Group tabs now" on demand. Rules are checked top to bottom, and grouping never pulls a tab out
     of a group you made by hand. New "Group tabs (saved rules)" entry on the toolbar menu and the
-    tab right-click menu, and a new Alt+Shift+G shortcut.
+    tab right-click menu; bindable from the browser's own shortcuts page (ships unassigned —
+    Chromium caps suggested shortcuts at four per extension and the other four were already spoken
+    for).
 
 Previous release (1.3.0):
 

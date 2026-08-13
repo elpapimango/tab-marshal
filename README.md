@@ -1,8 +1,10 @@
 # Tab Marshal
 
-A Manifest V3 browser extension that sorts tabs and tab groups, selects them in bulk, closes
-duplicates (or stops them opening at all), and reloads tabs in bulk. Runs on Edge, Chrome and
-Firefox from the same folder. No build step, no dependencies — load it as-is.
+A Manifest V3 browser extension that sorts tabs and tab groups, automatically groups tabs by rule,
+selects tabs in bulk, closes duplicates (or stops them opening at all), and reloads tabs in bulk.
+Runs on Edge, Chrome and Firefox from the same folder — including Firefox-based browsers like Zen,
+which use the same Gecko WebExtensions APIs and have no separate extension store of their own. No
+build step, no dependencies — load it as-is.
 
 ## Install (unpacked)
 
@@ -20,6 +22,7 @@ permanent install has to be signed through addons.mozilla.org.
 | Sorting, select, duplicates, reload, watch, themes | yes | yes |
 | Duplicate-tab shortcut | hidden — the browser already has one | offered, `Alt+Shift+K` |
 | Tab groups | yes | Firefox 139+; below that the API is absent and every tab sorts as a loose one |
+| Auto-group new tabs by rule | yes | Firefox 139+; the Group panel shows a hint and "Group tabs now" is disabled below that |
 | Favicons in the duplicate and reload lists | yes | yes |
 | Editing shortcuts from the Config tab | opens the browser's shortcuts page | Firefox refuses to let an extension open `about:addons`, so the tab shows the route instead |
 
@@ -114,6 +117,33 @@ Two details worth knowing:
 - **The popup closes on selecting**, because the highlight is behind it and the whole point is to
   right-click it immediately. If the currently active tab is part of the selection it is put first,
   so the browser does not move your focus somewhere unexpected.
+
+## Auto-group
+
+The **Group** panel puts tabs into named, coloured native tab groups by rule — something the Sort
+panel deliberately doesn't do, since sorting only ever reorders groups that already exist.
+
+Rules use the same field/comparison vocabulary as Select and Reload — *domain / hostname / URL /
+host+path / title* against *contains / is exactly / starts with / matches regex* — plus a group
+name and an optional colour. **Rules are checked top to bottom; the first one that matches a tab
+decides its group.** A tab that matches no rule is left alone, and a tab already sitting in the
+group its rule points at is left alone too. Leaving a rule's colour on *Auto* picks one
+deterministically from the group name, so the same name always lands on the same colour.
+
+Two ways to run it:
+
+- **Automatically**, as new tabs open — off by default, turned on from the checkbox at the top of
+  the panel. Only a tab's first committed URL is judged, the same "new tab" moment the duplicate
+  watch uses, not every navigation afterwards — otherwise moving a tab out of a group by hand would
+  just get fought on the next page load.
+- **On demand**, with **Group tabs now** — reconciles every matching tab in the current scope in
+  one pass. It only *adds* tabs to groups their rules point at; a tab sitting in some other group
+  that no longer matches any rule is left where it is; Auto-Group never undoes grouping done by
+  hand.
+
+Pinned tabs are skipped — Chrome unpins a tab the moment it joins a group, which would be a
+surprising side effect of a rule. `Alt+Shift+G` runs the saved rules, and the same action is on the
+right-click menu as **Group tabs (saved rules)**.
 
 ## Duplicates
 
@@ -249,6 +279,7 @@ The Config tab lists every command with its current binding, read live from `chr
 | --- | --- |
 | Open the Tab Marshal popup | unassigned |
 | Sort tabs with saved settings | `Alt+Shift+S` |
+| Group tabs with saved rules | `Alt+Shift+G` |
 | Close duplicate tabs | `Alt+Shift+D` |
 | Reload tabs with saved selection | `Alt+Shift+R` |
 | Duplicate the active tab (Firefox only) | `Alt+Shift+K` |
@@ -270,7 +301,7 @@ open that page, the address is shown for copying instead.
 
 The same menu hangs off two places: the toolbar icon, and a **right-click on any tab**. It offers
 the saved sort, one-off sorts by domain, hostname, URL, title and last accessed, four ways to
-select, closing duplicates, reloading, and undo.
+select, grouping tabs by the saved rules, closing duplicates, reloading, and undo.
 
 Three entries act on the tab you right-clicked rather than the active one:
 
@@ -303,12 +334,12 @@ windows when the scope is set to all.
 | Permission | Why |
 | --- | --- |
 | `tabs` | Read tab URLs and titles, move and close tabs |
-| `tabGroups` | Read group names/colours and move groups |
+| `tabGroups` | Read group names/colours, move groups, and create/name/colour groups for Auto-group |
 | `storage` | Persist settings, and hold the undo snapshot in session storage |
 | `contextMenus` | The right-click menu on the toolbar icon |
 
 There are no host permissions and no content scripts, and nothing about your browsing is ever sent
-anywhere.
+anywhere. See [PRIVACY.md](PRIVACY.md) for the full statement, written for the store listings.
 
 The one thing that leaves the machine is favicons. The duplicate and reload lists show each tab's
 own icon, loaded from the address the tab reports — so opening those lists can request an icon from
@@ -324,13 +355,13 @@ warning on every Firefox install; the shared path was the better trade. Delete t
 npm test
 ```
 
-129 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
-new-tab watch, theme resolution, settings round-trips, and `apply.js` driven against a fake tab
-strip (group contiguity, idempotence, undo, closing duplicates, reloading, every watch action). The
-logic in `src/lib/keys.js`, `src/lib/sorter.js`, `src/lib/duplicates.js`, `src/lib/select.js`,
-`src/lib/watch.js` and `src/lib/theme.js` is pure — it takes plain objects and returns a result — so
-it runs under plain Node with no browser stubs. `src/lib/apply.js` is the only place that talks to
-`chrome.*`.
+146 tests cover the sorting planner, domain parsing, duplicate detection, tab selection, the
+Auto-group rule planner, the new-tab watch, theme resolution, settings round-trips, and `apply.js`
+driven against a fake tab strip (group contiguity, idempotence, undo, closing duplicates,
+reloading, grouping, every watch action). The logic in `src/lib/keys.js`, `src/lib/sorter.js`,
+`src/lib/duplicates.js`, `src/lib/select.js`, `src/lib/autogroup.js`, `src/lib/watch.js` and
+`src/lib/theme.js` is pure — it takes plain objects and returns a result — so it runs under plain
+Node with no browser stubs. `src/lib/apply.js` is the only place that talks to `chrome.*`.
 
 Icons are generated rather than checked in as hand-made binaries:
 
@@ -357,8 +388,10 @@ npm run lint:amo
 ```
 
 One warning is expected and deliberate — `BACKGROUND_SERVICE_WORKER_IGNORED`, because the manifest
-declares both background styles on purpose. See [store/amo-listing.md](store/amo-listing.md) for the
-submission text.
+declares both background styles on purpose. Submission text for all three stores lives in `store/`:
+[amo-listing.md](store/amo-listing.md) (Firefox/Zen, via AMO), [chrome-listing.md](store/chrome-listing.md)
+and [edge-listing.md](store/edge-listing.md), plus the shared [PRIVACY.md](PRIVACY.md) every store's
+privacy-policy field points at.
 
 ### Layout
 
@@ -371,6 +404,7 @@ src/lib/keys.js        URL → domain/hostname/path keys
 src/lib/sorter.js      comparators and the sort planner (pure)
 src/lib/duplicates.js  duplicate detection (pure)
 src/lib/select.js      tab selection and filters, shared by Select and Reload (pure)
+src/lib/autogroup.js   Auto-group rule matching and the grouping plan (pure)
 src/lib/menus.js       the context-menu tree (pure)
 src/lib/watch.js       when to judge a tab, and what to do about a duplicate (pure)
 src/lib/theme.js       theme list and light/dark resolution (pure)
@@ -381,7 +415,10 @@ test/                  node --test suites
 tools/make-icons.mjs   PNG icon generator
 tools/make-menu-icons.mjs  context-menu glyphs, light and dark
 tools/package.mjs      builds the store zip
+PRIVACY.md             privacy policy, linked from every store listing
 store/amo-listing.md   addons.mozilla.org submission text
+store/chrome-listing.md  Chrome Web Store submission text
+store/edge-listing.md  Microsoft Edge Add-ons submission text
 ```
 
 ### How the sort is applied

@@ -23,7 +23,7 @@ Tab Marshal. Set the slug under **Edit Product Page** if AMO does not pick it up
 
 *AMO limit 250 characters. This matches `description` in manifest.json.*
 
-    Sort tabs and tab groups by domain, URL, title, recency or regex. Find and close duplicates, prevent new ones, and reload in bulk.
+    Sort and auto-group tabs by domain, URL, title or regex. Find and close duplicates, prevent new ones, and reload in bulk.
 
 ## Categories
 
@@ -54,6 +54,10 @@ Every other panel does something to the tabs it picks. Select picks them and sto
 
 Most of this is also on the tab's own right-click menu, including "select every tab from this site".
 
+AUTO-GROUP
+
+Build a list of rules — domain, hostname, URL, host + path or title, matched by contains / equals / starts with / regex — each pointing at a named, coloured tab group. Rules are checked top to bottom; the first match decides a tab's group, and a tab that matches nothing is left alone. Turn on "automatically group new tabs as they open" to have it happen live, or leave it off and press "Group tabs now" whenever you want. Either way it only ever adds tabs to the group their rule points at — it never pulls a tab out of a group you put it in by hand.
+
 DUPLICATES
 
 Find duplicates lists what would close before anything closes. Match on the exact URL, ignoring the #fragment, ignoring the query string too, or on host and path alone. Keep the leftmost, rightmost or most recently used copy. Pinned tabs, grouped tabs and tabs playing audio can be protected, and a protected tab is never the one that closes.
@@ -76,7 +80,7 @@ Open source under the MIT licence: https://github.com/elpapimango/tab-marshal
 
 ## Tags
 
-    tabs, tab management, sort, duplicate tabs, tab groups, productivity
+    tabs, tab management, sort, tab groups, auto-group, duplicate tabs, productivity
 
 ## License
 
@@ -92,15 +96,21 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.3.0)
+## Version notes (1.4.0)
 
-    First public release.
+    Added Auto-group: build a list of domain / hostname / URL / host+path / title rules, each
+    pointing at a named, coloured tab group, and either group new tabs live as they open or run
+    "Group tabs now" on demand. Rules are checked top to bottom, and grouping never pulls a tab out
+    of a group you made by hand. New "Group tabs (saved rules)" entry on the toolbar menu and the
+    tab right-click menu, and a new Alt+Shift+G shortcut.
 
-    Sort tabs and tab groups by domain, hostname, URL, host + path, title, recency or a regular
-    expression. Select tabs in bulk and hand them to the browser's own right-click menu. Find and
-    close duplicates, or catch them as they open. Reload tabs by filter, group or all at once. Ten
-    themes, and keyboard shortcuts for everything. Most actions are also on the tab's own
-    right-click menu.
+Previous release (1.3.0):
+
+    First public release. Sort tabs and tab groups by domain, hostname, URL, host + path, title,
+    recency or a regular expression. Select tabs in bulk and hand them to the browser's own
+    right-click menu. Find and close duplicates, or catch them as they open. Reload tabs by filter,
+    group or all at once. Ten themes, and keyboard shortcuts for everything. Most actions are also
+    on the tab's own right-click menu.
 
 ## Screenshots
 
@@ -110,14 +120,18 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | --- | --- |
 | `1-sort.png` | Sort by domain, URL, title, recency — or a regular expression |
 | `2-select.png` | Select tabs by filter, then use the browser's own right-click menu |
-| `3-duplicates.png` | Review duplicates before anything closes, or catch them as they open |
-| `4-reload.png` | Reload every tab matching a filter, staggered so nothing floods |
-| `5-config.png` | Keyboard shortcuts and ten themes |
-| `6-theme-mocha.png` | Catppuccin Mocha |
-| `7-theme-latte.png` | Catppuccin Latte |
-| `8-theme-nord.png` | Nord |
+| `3-group.png` | Auto-group new tabs by domain, URL or regex into named, coloured groups |
+| `4-duplicates.png` | Review duplicates before anything closes, or catch them as they open |
+| `5-reload.png` | Reload every tab matching a filter, staggered so nothing floods |
+| `6-config.png` | Keyboard shortcuts and ten themes |
+| `7-theme-mocha.png` | Catppuccin Mocha |
+| `8-theme-latte.png` | Catppuccin Latte |
+| `9-theme-nord.png` | Nord |
 
 They are generated from the real popup against a fixed sample session, not mocked up.
+**The 1.4.0 renumbering above (adding `3-group.png`) is not done yet** — the files in
+`store/screenshots/` still reflect 1.3.0's five panels. Recapture and renumber before submitting
+1.4.0.
 
 ## Notes for the reviewer
 

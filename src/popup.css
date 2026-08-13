@@ -604,6 +604,123 @@ button.danger:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+.rule-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rule-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rule-row select,
+.rule-row input[type="text"] {
+  flex: 1 1 0;
+  max-width: none;
+}
+
+.rule-case {
+  flex: 0 0 auto;
+  gap: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.rule-row-actions {
+  justify-content: space-between;
+}
+
+.swatches {
+  display: flex;
+  gap: 4px;
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--sw-color);
+  cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.swatch-auto {
+  background: repeating-conic-gradient(var(--muted) 0% 25%, var(--field) 0% 50%) 0 0 / 8px 8px;
+}
+
+.swatch-grey {
+  --sw-color: #80868b;
+}
+
+.swatch-blue {
+  --sw-color: #1a73e8;
+}
+
+.swatch-red {
+  --sw-color: #d93025;
+}
+
+.swatch-yellow {
+  --sw-color: #f9ab00;
+}
+
+.swatch-green {
+  --sw-color: #1e8e3e;
+}
+
+.swatch-pink {
+  --sw-color: #d01884;
+}
+
+.swatch-purple {
+  --sw-color: #a142f4;
+}
+
+.swatch-cyan {
+  --sw-color: #12b5cb;
+}
+
+.swatch-orange {
+  --sw-color: #fa903e;
+}
+
+.rule-buttons {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.icon-btn {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  font-weight: 400;
+}
+
 .shortcuts {
   list-style: none;
   margin: 0 0 8px;

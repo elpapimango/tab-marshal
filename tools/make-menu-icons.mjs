@@ -27,6 +27,11 @@ const GLYPHS = {
   select:
     '<rect x="2.4" y="2.4" width="11.2" height="11.2" rx="2.2" stroke-dasharray="2.6 2"/>' +
     '<path d="M5.6 8.1l1.9 1.9 3.4-3.9"/>',
+  // A group's colour bar over two tabs sitting side by side — the tab-group pill.
+  group:
+    '<path d="M2.8 3.4h10.4" stroke-linecap="round"/>' +
+    '<rect x="2.8" y="6.2" width="4.4" height="6.4" rx="1"/>' +
+    '<rect x="8.8" y="6.2" width="4.4" height="6.4" rx="1"/>',
   // The usual two-sheets copy mark.
   duplicates: '<rect x="2.4" y="2.4" width="8" height="8" rx="1.6"/><path d="M5.6 13.6h5.9a2.1 2.1 0 0 0 2.1-2.1V5.6"/>',
   // Circular arrow.

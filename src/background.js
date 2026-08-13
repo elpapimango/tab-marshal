@@ -7,7 +7,9 @@ import {
   reloadTabs,
   respondToNewTab,
   duplicateActiveTab,
-  applySelection
+  applySelection,
+  groupTabs,
+  applyAutoGroupTab
 } from './lib/apply.js';
 import { isBlankUrl } from './lib/duplicates.js';
 import { shouldEvaluate } from './lib/watch.js';
@@ -137,6 +139,8 @@ api.contextMenus.onClicked.addListener(async (info, tab) => {
     case 'select-duplicates':
       return run(() => applySelection(withSelect({ selection: 'duplicates' }), anchor));
 
+    case 'group-saved':
+      return run(() => groupTabs(settings));
     case 'close-dupes':
       return run(() => closeDuplicates(settings));
     case 'reload-saved':
@@ -153,6 +157,7 @@ api.contextMenus.onClicked.addListener(async (info, tab) => {
 api.commands.onCommand.addListener(async (command) => {
   const settings = await loadSettings();
   if (command === 'sort-tabs') return run(() => sortTabs(settings));
+  if (command === 'group-tabs') return run(() => groupTabs(settings));
   if (command === 'close-duplicates') return run(() => closeDuplicates(settings));
   if (command === 'reload-tabs') return run(() => reloadTabs(settings));
   if (command === 'undo-sort') return run(() => undoSort(settings));
@@ -256,18 +261,27 @@ api.tabs.onRemoved.addListener((tabId) => {
 
 /**
  * Judge one URL change. New tabs are judged once, on their first committed
- * URL; existing tabs are only judged if the user opted into that.
+ * URL; existing tabs are only judged for duplicates if the user opted into
+ * that. Auto-group is independent of the duplicate-watch setting, so it still
+ * runs when duplicate watching is off.
  */
 async function evaluateTab(tabId, tab, source) {
   try {
     if (await isSuppressed()) return;
 
     const settings = await loadSettings();
-    if (!shouldEvaluate(source, settings.watch)) return;
-
     const fresh = tab && tab.url ? tab : await api.tabs.get(tabId);
-    const { acted } = await respondToNewTab(fresh, settings);
-    if (acted) await flashBadge('dup', '#0f6cbd');
+
+    let tabClosed = false;
+    if (shouldEvaluate(source, settings.watch)) {
+      const { acted, plan } = await respondToNewTab(fresh, settings);
+      if (acted) await flashBadge('dup', '#0f6cbd');
+      tabClosed = Boolean(plan && plan.closeTabIds && plan.closeTabIds.includes(fresh.id));
+    }
+
+    if (source === 'new-tab' && !tabClosed && settings.autoGroup.enabled) {
+      await applyAutoGroupTab(fresh, settings).catch((err) => console.error('[Tab Marshal] auto-group', err));
+    }
   } catch (err) {
     console.error('[Tab Marshal] duplicate watch', err);
   }

@@ -30,6 +30,9 @@ export const MENU_ITEMS = [
   { id: 'select-group', title: "Select this tab's group", icon: 'select', anchored: true },
   { id: 'select-duplicates', title: 'Select duplicate tabs', icon: 'select' },
 
+  { id: 'sep-group', type: 'separator' },
+  { id: 'group-saved', title: 'Group tabs (saved rules)', icon: 'group' },
+
   { id: 'sep-act', type: 'separator' },
   { id: 'close-dupes', title: 'Close duplicate tabs', icon: 'duplicates' },
   { id: 'reload-saved', title: 'Reload tabs (saved selection)', icon: 'reload' },
@@ -40,7 +43,7 @@ export const MENU_ITEMS = [
 ];
 
 /** Glyphs shipped in icons/menu/, one pair per name. */
-export const MENU_ICONS = ['sort', 'select', 'duplicates', 'reload', 'undo'];
+export const MENU_ICONS = ['sort', 'select', 'group', 'duplicates', 'reload', 'undo'];
 
 /**
  * Icon paths for one item.

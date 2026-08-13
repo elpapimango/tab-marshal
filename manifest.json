@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Tab Marshal",
-  "version": "1.3.0",
-  "description": "Sort tabs and tab groups by domain, URL, title, recency or regex. Find and close duplicates, prevent new ones, and reload in bulk.",
+  "version": "1.4.0",
+  "description": "Sort and auto-group tabs by domain, URL, title or regex. Find and close duplicates, prevent new ones, and reload in bulk.",
   "author": "wienerworks",
   "homepage_url": "https://github.com/elpapimango/tab-marshal",
   "minimum_chrome_version": "104",
@@ -53,6 +53,12 @@
       "description": "Sort tabs (saved settings)",
       "suggested_key": {
         "default": "Alt+Shift+S"
+      }
+    },
+    "group-tabs": {
+      "description": "Group tabs (saved rules)",
+      "suggested_key": {
+        "default": "Alt+Shift+G"
       }
     },
     "close-duplicates": {

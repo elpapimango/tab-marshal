@@ -18,8 +18,8 @@ export const CRITERIA = [
   { id: 'regex', label: 'Regular expression' }
 ];
 
-/** Order used when sorting groups by colour. */
-const COLOR_ORDER = ['grey', 'blue', 'cyan', 'green', 'yellow', 'orange', 'red', 'pink', 'purple'];
+/** Order used when sorting groups by colour; also the fixed tabGroups colour enum. */
+export const COLOR_ORDER = ['grey', 'blue', 'cyan', 'green', 'yellow', 'orange', 'red', 'pink', 'purple'];
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 

@@ -16,7 +16,9 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
   const reloads = [];
   const activated = [];
   const highlights = [];
+  const groupMeta = new Map();
   let nextId = 1000;
+  let nextGroupId = 100;
   const unreloadable = new Set(failReload);
   const reindex = () => strip.forEach((t, i) => (t.index = i));
 
@@ -26,6 +28,7 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
     _reloads: () => reloads.map((r) => ({ ...r })),
     _activated: () => [...activated],
     _highlights: () => highlights.map((h) => ({ ...h })),
+    _groupMeta: (groupId) => groupMeta.get(groupId),
     windows: {
       getCurrent: async () => ({ id: 1 }),
       getAll: async () => [{ id: 1 }],
@@ -81,17 +84,36 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
         const set = new Set([].concat(ids));
         strip = strip.filter((t) => !set.has(t.id));
         reindex();
+      },
+      group: async ({ tabIds, groupId, createProperties } = {}) => {
+        const ids = [].concat(tabIds);
+        const gid = groupId != null ? groupId : nextGroupId++;
+        for (const id of ids) {
+          const t = strip.find((x) => x.id === id);
+          if (!t) throw new Error(`no such tab ${id}`);
+          t.groupId = gid;
+          if (createProperties && createProperties.windowId != null) t.windowId = createProperties.windowId;
+        }
+        return gid;
       }
     },
     tabGroups: {
-      query: async () => {
+      query: async (q = {}) => {
         const seen = new Map();
         for (const t of strip) {
+          if (q.windowId !== undefined && t.windowId !== q.windowId) continue;
           if (t.groupId !== NONE && !seen.has(t.groupId)) {
-            seen.set(t.groupId, { id: t.groupId, title: `G${t.groupId}`, color: 'blue' });
+            const meta = groupMeta.get(t.groupId) || { title: `G${t.groupId}`, color: 'blue' };
+            seen.set(t.groupId, { id: t.groupId, title: meta.title, color: meta.color });
           }
         }
         return [...seen.values()];
+      },
+      update: async (groupId, { title, color } = {}) => {
+        const prev = groupMeta.get(groupId) || {};
+        const next = { title: title ?? prev.title, color: color ?? prev.color };
+        groupMeta.set(groupId, next);
+        return { id: groupId, ...next };
       },
       move: async (groupId, { index }) => {
         const members = strip.filter((t) => t.groupId === groupId);
@@ -135,13 +157,14 @@ async function withFakeChrome(initial, fn, options) {
   }
 }
 
-const settings = (sort = {}, duplicates = {}, reload = {}, watch = {}, select = {}) => ({
+const settings = (sort = {}, duplicates = {}, reload = {}, watch = {}, select = {}, autoGroup = {}) => ({
   scope: 'window',
   sort: { primary: 'domain', secondary: 'none', target: 'all', groupPlacement: 'interleave', groupOrderBy: 'tabs', ...sort },
   duplicates: { ...duplicates },
   reload: { delayMs: 0, ...reload },
   watch: { onDuplicate: 'ignore', ...watch },
-  select: { selection: 'all', field: 'domain', mode: 'contains', value: '', skipPinned: false, skipUnloaded: false, ...select }
+  select: { selection: 'all', field: 'domain', mode: 'contains', value: '', skipPinned: false, skipUnloaded: false, ...select },
+  autoGroup: { enabled: false, rules: [], ...autoGroup }
 });
 
 test('sorting a flat strip reorders it', async () => {
@@ -592,4 +615,108 @@ test('closeDuplicates reports when there is nothing to do', async () => {
       assert.match(result.message, /No duplicate/);
     }
   );
+});
+
+const groupRule = (overrides) => ({
+  field: 'domain',
+  mode: 'contains',
+  value: '',
+  caseSensitive: false,
+  groupName: '',
+  color: '',
+  ...overrides
+});
+
+test('groupTabs creates a new group and names/colours it', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://example.com/', title: 'B', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      const result = await apply.groupTabs(
+        settings({}, {}, {}, {}, {}, { rules: [groupRule({ value: 'github.com', groupName: 'Dev', color: 'blue' })] })
+      );
+      assert.equal(result.ok, true);
+      assert.equal(result.grouped, 1);
+      const tab = chrome._tabs().find((t) => t.id === 1);
+      assert.notEqual(tab.groupId, NONE);
+      assert.deepEqual(chrome._groupMeta(tab.groupId), { title: 'Dev', color: 'blue' });
+      assert.equal(chrome._tabs().find((t) => t.id === 2).groupId, NONE);
+    }
+  );
+});
+
+test('groupTabs is idempotent — running it twice groups nothing new the second time', async () => {
+  await withFakeChrome(
+    [{ id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE }],
+    async (apply) => {
+      const rules = [groupRule({ value: 'github.com', groupName: 'Dev' })];
+      const first = await apply.groupTabs(settings({}, {}, {}, {}, {}, { rules }));
+      assert.equal(first.grouped, 1);
+      const second = await apply.groupTabs(settings({}, {}, {}, {}, {}, { rules }));
+      assert.equal(second.grouped, 0);
+    }
+  );
+});
+
+test('groupTabs reuses an existing group with the same name instead of making a new one', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://a.com/', title: 'A', pinned: false, groupId: 42, windowId: 1 },
+      { id: 2, url: 'https://github.com/x', title: 'B', pinned: false, groupId: NONE, windowId: 1 }
+    ],
+    async (apply, chrome) => {
+      await chrome.tabGroups.update(42, { title: 'Dev', color: 'red' });
+      await apply.groupTabs(settings({}, {}, {}, {}, {}, { rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }));
+      assert.equal(chrome._tabs().find((t) => t.id === 2).groupId, 42, 'joined the existing group by title');
+    }
+  );
+});
+
+test('groupTabs skips pinned tabs and leaves an unmatched tab alone', async () => {
+  await withFakeChrome(
+    [{ id: 1, url: 'https://github.com/a', title: 'A', pinned: true, groupId: NONE }],
+    async (apply, chrome) => {
+      const result = await apply.groupTabs(
+        settings({}, {}, {}, {}, {}, { rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] })
+      );
+      assert.equal(result.grouped, 0);
+      assert.equal(chrome._tabs()[0].groupId, NONE);
+    }
+  );
+});
+
+test('groupTabs reports when there are no rules to apply', async () => {
+  await withFakeChrome([{ id: 1, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE }], async (apply) => {
+    const result = await apply.groupTabs(settings());
+    assert.equal(result.ok, false);
+    assert.match(result.message, /Add a rule/);
+  });
+});
+
+test('applyAutoGroupTab groups a single freshly opened tab', async () => {
+  await withFakeChrome([{ id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE, windowId: 1 }], async (apply, chrome) => {
+    const result = await apply.applyAutoGroupTab(chrome._tabs()[0], {
+      autoGroup: { enabled: true, rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }
+    });
+    assert.equal(result.acted, true);
+    assert.notEqual(chrome._tabs()[0].groupId, NONE);
+  });
+});
+
+test('applyAutoGroupTab is a no-op when auto-group is off or the tab is pinned', async () => {
+  await withFakeChrome([{ id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE, windowId: 1 }], async (apply, chrome) => {
+    const off = await apply.applyAutoGroupTab(chrome._tabs()[0], {
+      autoGroup: { enabled: false, rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }
+    });
+    assert.equal(off.acted, false);
+  });
+
+  await withFakeChrome([{ id: 1, url: 'https://github.com/a', title: 'A', pinned: true, groupId: NONE, windowId: 1 }], async (apply, chrome) => {
+    const pinned = await apply.applyAutoGroupTab(chrome._tabs()[0], {
+      autoGroup: { enabled: true, rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }
+    });
+    assert.equal(pinned.acted, false);
+  });
 });

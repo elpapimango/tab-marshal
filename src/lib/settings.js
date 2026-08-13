@@ -3,6 +3,7 @@ import { DEFAULT_SORT_OPTIONS } from './sorter.js';
 import { DEFAULT_DUPLICATE_OPTIONS } from './duplicates.js';
 import { DEFAULT_RELOAD_OPTIONS, DEFAULT_SELECT_OPTIONS } from './select.js';
 import { DEFAULT_WATCH_OPTIONS } from './watch.js';
+import { DEFAULT_AUTOGROUP_OPTIONS } from './autogroup.js';
 import { DEFAULT_THEME } from './theme.js';
 
 const KEY = 'tabSorterSettings';
@@ -18,7 +19,8 @@ export const DEFAULT_SETTINGS = {
   duplicates: { ...DEFAULT_DUPLICATE_OPTIONS },
   reload: { ...DEFAULT_RELOAD_OPTIONS },
   select: { ...DEFAULT_SELECT_OPTIONS },
-  watch: { ...DEFAULT_WATCH_OPTIONS }
+  watch: { ...DEFAULT_WATCH_OPTIONS },
+  autoGroup: { ...DEFAULT_AUTOGROUP_OPTIONS }
 };
 
 export async function loadSettings() {
@@ -31,7 +33,12 @@ export async function loadSettings() {
     duplicates: { ...DEFAULT_DUPLICATE_OPTIONS, ...(saved.duplicates || {}) },
     reload: { ...DEFAULT_RELOAD_OPTIONS, ...(saved.reload || {}) },
     select: { ...DEFAULT_SELECT_OPTIONS, ...(saved.select || {}) },
-    watch: { ...DEFAULT_WATCH_OPTIONS, ...(saved.watch || {}) }
+    watch: { ...DEFAULT_WATCH_OPTIONS, ...(saved.watch || {}) },
+    autoGroup: {
+      ...DEFAULT_AUTOGROUP_OPTIONS,
+      ...(saved.autoGroup || {}),
+      rules: (saved.autoGroup && saved.autoGroup.rules) || []
+    }
   };
 }
 
@@ -44,7 +51,8 @@ export async function saveSettings(settings) {
     duplicates: { ...settings.duplicates },
     reload: { ...settings.reload },
     select: { ...settings.select },
-    watch: { ...settings.watch }
+    watch: { ...settings.watch },
+    autoGroup: { ...settings.autoGroup, rules: settings.autoGroup.rules.map((r) => ({ ...r })) }
   };
   // Never persist compiled RegExps — they are not structured-cloneable.
   delete clean.sort.compiledRegex;
@@ -53,5 +61,9 @@ export async function saveSettings(settings) {
   delete clean.reload.__prepared;
   delete clean.select.compiledFilter;
   delete clean.select.__prepared;
+  for (const rule of clean.autoGroup.rules) {
+    delete rule.compiledFilter;
+    delete rule.__prepared;
+  }
   await api.storage.sync.set({ [KEY]: clean });
 }

@@ -8,6 +8,7 @@ import { planSort, planFromSnapshot, prepareOptions, TAB_GROUP_ID_NONE } from '.
 import { findDuplicates } from './duplicates.js';
 import { selectTabs, explainEmpty, prepareReloadOptions, prepareSelectOptions } from './select.js';
 import { planDuplicateResponse, planDoesSomething } from './watch.js';
+import { planGroupAssignments, DEFAULT_AUTOGROUP_OPTIONS } from './autogroup.js';
 
 const UNDO_KEY = 'undoSnapshots';
 
@@ -126,6 +127,97 @@ export async function hasUndo(settings) {
   const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
   const windowIds = await getWindowIds(settings.scope);
   return windowIds.some((id) => store[id]);
+}
+
+function groupsByTitle(groups) {
+  return new Map(groups.map((g) => [String(g.title || '').toLowerCase(), g]));
+}
+
+/**
+ * Carry out a planGroupAssignments() plan in one window. Tabs headed for the
+ * same group are bucketed into a single tabs.group() call each, and a bucket
+ * with no existing group creates one and names/colours it.
+ *
+ * @param {Map} byTitle mutated in place so a group created for one bucket is
+ *   visible to the next call in the same run (e.g. two tabs, same new group).
+ */
+async function applyGroupPlan(windowId, plan, byTitle) {
+  const buckets = new Map();
+  for (const item of plan) {
+    const key = item.groupTitle.toLowerCase();
+    if (!buckets.has(key)) {
+      buckets.set(key, { title: item.groupTitle, color: item.color, existingGroupId: item.existingGroupId, tabIds: [] });
+    }
+    buckets.get(key).tabIds.push(item.tabId);
+  }
+
+  let grouped = 0;
+  for (const bucket of buckets.values()) {
+    try {
+      if (bucket.existingGroupId != null) {
+        await api.tabs.group({ tabIds: bucket.tabIds, groupId: bucket.existingGroupId });
+      } else {
+        const groupId = await api.tabs.group({ tabIds: bucket.tabIds, createProperties: { windowId } });
+        await api.tabGroups.update(groupId, { title: bucket.title, color: bucket.color });
+        byTitle.set(bucket.title.toLowerCase(), { id: groupId, title: bucket.title, color: bucket.color });
+      }
+      grouped += bucket.tabIds.length;
+    } catch {
+      // A tab closed mid-run, or the group vanished between planning and now.
+    }
+  }
+  return grouped;
+}
+
+/**
+ * Group every eligible tab in scope by the saved rules — the "Group tabs now"
+ * button and the group-tabs command. Reconciles all matching tabs at once;
+ * tabs whose current group no longer matches any rule are left alone, since
+ * Auto-Group should never undo grouping the user did by hand.
+ */
+export async function groupTabs(settings) {
+  if (!hasTabGroups()) {
+    return { ok: false, grouped: 0, message: "Tab groups aren't supported by this browser version." };
+  }
+  const opts = settings.autoGroup || DEFAULT_AUTOGROUP_OPTIONS;
+  if (!opts.rules || !opts.rules.length) {
+    return { ok: false, grouped: 0, message: 'Add a rule first.' };
+  }
+
+  const windowIds = await getWindowIds(settings.scope);
+  let grouped = 0;
+  for (const windowId of windowIds) {
+    const { tabs, groups } = await readWindow(windowId);
+    const eligible = tabs.filter((t) => !t.pinned);
+    const byTitle = groupsByTitle(groups);
+    const plan = planGroupAssignments(eligible, opts.rules, byTitle);
+    if (plan.length) grouped += await applyGroupPlan(windowId, plan, byTitle);
+  }
+
+  return {
+    ok: true,
+    grouped,
+    message: grouped ? `Grouped ${grouped} ${plural(grouped, 'tab')}.` : 'No tabs matched a rule.'
+  };
+}
+
+/**
+ * Group a single freshly opened tab, called from the service worker. A no-op
+ * unless auto-group is on, rules exist, and the tab isn't pinned.
+ */
+export async function applyAutoGroupTab(tab, settings) {
+  if (!hasTabGroups() || !tab || typeof tab.id !== 'number' || tab.pinned) return { acted: false };
+
+  const opts = settings.autoGroup || DEFAULT_AUTOGROUP_OPTIONS;
+  if (!opts.enabled || !opts.rules || !opts.rules.length) return { acted: false };
+
+  const groups = await api.tabGroups.query({ windowId: tab.windowId });
+  const byTitle = groupsByTitle(groups);
+  const plan = planGroupAssignments([tab], opts.rules, byTitle);
+  if (!plan.length) return { acted: false };
+
+  const grouped = await applyGroupPlan(tab.windowId, plan, byTitle);
+  return { acted: grouped > 0 };
 }
 
 async function queryScopedTabs(scope) {

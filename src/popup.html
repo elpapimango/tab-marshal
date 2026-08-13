@@ -22,6 +22,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab-btn is-active" data-panel="panel-sort" role="tab">Sort</button>
       <button class="tab-btn" data-panel="panel-select" role="tab">Select</button>
+      <button class="tab-btn" data-panel="panel-group" role="tab">Group</button>
       <button class="tab-btn" data-panel="panel-dupes" role="tab">Duplicates</button>
       <button class="tab-btn" data-panel="panel-reload" role="tab">Reload</button>
       <button class="tab-btn" data-panel="panel-config" role="tab">Config</button>
@@ -131,6 +132,26 @@
       </p>
 
       <ul id="select-list" class="dupe-list"></ul>
+    </section>
+
+    <section id="panel-group" class="panel">
+      <label class="chk"><input type="checkbox" id="autoGroupEnabled" /> Automatically group new tabs as they open</label>
+      <p class="hint">
+        Rules are checked top to bottom; the first one that matches a tab decides its group. A tab
+        that matches no rule is left alone.
+      </p>
+
+      <ul id="rule-list" class="rule-list"></ul>
+      <div class="actions">
+        <button id="add-rule">Add rule</button>
+      </div>
+
+      <div class="actions">
+        <button id="group-now" class="primary">Group tabs now</button>
+      </div>
+      <p class="hint" id="group-unsupported-hint" hidden>
+        Tab groups need Firefox 139+, or Chrome/Edge.
+      </p>
     </section>
 
     <section id="panel-dupes" class="panel">

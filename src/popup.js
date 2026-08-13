@@ -1,8 +1,9 @@
-import { api, isFirefox } from './lib/browser.js';
+import { api, isFirefox, hasTabGroups } from './lib/browser.js';
 import { CRITERIA } from './lib/sorter.js';
 import { MATCH_MODES } from './lib/duplicates.js';
 import { DUPLICATE_ACTIONS } from './lib/watch.js';
 import { SELECTIONS, SELECT_SOURCES, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
+import { GROUP_COLORS, DEFAULT_RULE } from './lib/autogroup.js';
 import { THEMES, resolveTheme } from './lib/theme.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 import {
@@ -14,6 +15,7 @@ import {
   reloadTabs,
   previewSelection,
   applySelection,
+  groupTabs,
   hasUndo
 } from './lib/apply.js';
 
@@ -76,6 +78,11 @@ const el = {
   selSkipPinned: $('selSkipPinned'),
   selectBtn: $('select'),
   selectList: $('select-list'),
+  autoGroupEnabled: $('autoGroupEnabled'),
+  ruleList: $('rule-list'),
+  addRule: $('add-rule'),
+  groupNow: $('group-now'),
+  groupUnsupportedHint: $('group-unsupported-hint'),
   theme: $('theme'),
   menuBox: $('menu-box'),
   menuIcons: $('menuIcons'),
@@ -111,9 +118,16 @@ async function init() {
   applyTheme(settings.theme);
   applySettingsToUi();
   wireEvents();
+  // Rendered after wireEvents() so the generic select/input wiring below never
+  // sees these dynamically-created rows — they get their own listeners instead.
+  renderRules();
   // Menu glyphs are a Firefox-only feature; the control only appears where it
   // does something.
   el.menuBox.hidden = !isFirefox();
+  // Tab groups need Chrome/Edge or Firefox 139+; grouping is a no-op elsewhere.
+  const groupsSupported = hasTabGroups();
+  el.groupNow.disabled = !groupsSupported;
+  el.groupUnsupportedHint.hidden = groupsSupported;
   renderAbout();
   await renderShortcuts();
   el.undo.disabled = !(await hasUndo(settings));
@@ -203,6 +217,8 @@ function applySettingsToUi() {
   el.selNegate.checked = !!sel.negate;
   el.selSkipPinned.checked = !!sel.skipPinned;
 
+  el.autoGroupEnabled.checked = !!settings.autoGroup.enabled;
+
   refreshConditionalUi();
 }
 
@@ -256,6 +272,13 @@ function readUi() {
       negate: el.selNegate.checked,
       skipPinned: el.selSkipPinned.checked,
       skipUnloaded: false
+    },
+    // Rules are edited in place on `settings.autoGroup.rules` by the rule-list
+    // handlers below, not read back from the DOM — there's no fixed element to
+    // read them from.
+    autoGroup: {
+      enabled: el.autoGroupEnabled.checked,
+      rules: settings.autoGroup.rules
     }
   };
 }
@@ -317,6 +340,8 @@ function wireEvents() {
   el.closeDupes.addEventListener('click', onCloseDuplicates);
   el.reload.addEventListener('click', onReload);
   el.selectBtn.addEventListener('click', onSelect);
+  el.addRule.addEventListener('click', addRule);
+  el.groupNow.addEventListener('click', () => act(el.groupNow, () => groupTabs(settings)));
   el.openShortcuts.addEventListener('click', onOpenShortcuts);
 
   // Keep "match browser" honest if the OS flips while the popup is open.
@@ -551,6 +576,143 @@ async function onSelect() {
     setStatus(err.message || String(err), true);
     el.selectBtn.disabled = false;
   }
+}
+
+/** '' stands for "auto-assign from the group name" — the first swatch. */
+const COLOR_SWATCHES = ['', ...GROUP_COLORS];
+
+function renderRules() {
+  const rules = settings.autoGroup.rules;
+  el.ruleList.replaceChildren(...rules.map((rule, index) => ruleCard(rule, index, rules.length)));
+}
+
+/** One rule: field/comparison, pattern, group name, and colour + reorder/delete. */
+function ruleCard(rule, index, total) {
+  const li = document.createElement('li');
+  li.className = 'rule-card';
+
+  const row1 = document.createElement('div');
+  row1.className = 'rule-row';
+  const fieldSel = document.createElement('select');
+  fillOptions(fieldSel, FILTER_FIELDS);
+  fieldSel.value = rule.field;
+  fieldSel.setAttribute('aria-label', 'Match field');
+  fieldSel.addEventListener('change', () => updateRule(index, { field: fieldSel.value }));
+  const modeSel = document.createElement('select');
+  fillOptions(modeSel, FILTER_MODES);
+  modeSel.value = rule.mode;
+  modeSel.setAttribute('aria-label', 'Match comparison');
+  row1.append(fieldSel, modeSel);
+
+  const row2 = document.createElement('div');
+  row2.className = 'rule-row';
+  const valueInput = document.createElement('input');
+  valueInput.type = 'text';
+  valueInput.spellcheck = false;
+  valueInput.placeholder = rule.mode === 'regex' ? '\\.example\\.(com|org)$' : 'github.com';
+  valueInput.value = rule.value || '';
+  valueInput.setAttribute('aria-label', 'Pattern value');
+  valueInput.addEventListener('input', () => updateRule(index, { value: valueInput.value }, { skipRender: true }));
+
+  const caseLabel = document.createElement('label');
+  caseLabel.className = 'chk rule-case';
+  caseLabel.title = 'Case sensitive';
+  caseLabel.hidden = rule.mode !== 'regex';
+  const caseChk = document.createElement('input');
+  caseChk.type = 'checkbox';
+  caseChk.checked = !!rule.caseSensitive;
+  caseChk.addEventListener('change', () => updateRule(index, { caseSensitive: caseChk.checked }, { skipRender: true }));
+  caseLabel.append(caseChk, document.createTextNode(' Aa'));
+  row2.append(valueInput, caseLabel);
+
+  modeSel.addEventListener('change', () => {
+    const isRegex = modeSel.value === 'regex';
+    valueInput.placeholder = isRegex ? '\\.example\\.(com|org)$' : 'github.com';
+    caseLabel.hidden = !isRegex;
+    updateRule(index, { mode: modeSel.value }, { skipRender: true });
+  });
+
+  const row3 = document.createElement('div');
+  row3.className = 'rule-row';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.spellcheck = false;
+  nameInput.placeholder = 'Group name';
+  nameInput.value = rule.groupName || '';
+  nameInput.setAttribute('aria-label', 'Group name');
+  nameInput.addEventListener('input', () => updateRule(index, { groupName: nameInput.value }, { skipRender: true }));
+  row3.append(nameInput);
+
+  const row4 = document.createElement('div');
+  row4.className = 'rule-row rule-row-actions';
+
+  const swatches = document.createElement('div');
+  swatches.className = 'swatches';
+  for (const color of COLOR_SWATCHES) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = color ? `swatch swatch-${color}` : 'swatch swatch-auto';
+    btn.title = color || 'Auto (from group name)';
+    btn.setAttribute('aria-pressed', String((rule.color || '') === color));
+    btn.addEventListener('click', () => updateRule(index, { color }));
+    swatches.append(btn);
+  }
+
+  const buttons = document.createElement('div');
+  buttons.className = 'rule-buttons';
+  const upBtn = iconButton('↑', 'Move rule up', () => moveRule(index, -1));
+  upBtn.disabled = index === 0;
+  const downBtn = iconButton('↓', 'Move rule down', () => moveRule(index, 1));
+  downBtn.disabled = index === total - 1;
+  const delBtn = iconButton('✕', 'Delete rule', () => deleteRule(index));
+  delBtn.classList.add('danger');
+  buttons.append(upBtn, downBtn, delBtn);
+
+  row4.append(swatches, buttons);
+  li.append(row1, row2, row3, row4);
+  return li;
+}
+
+function iconButton(label, title, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'icon-btn';
+  btn.textContent = label;
+  btn.title = title;
+  btn.setAttribute('aria-label', title);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+async function updateRule(index, patch, { skipRender = false } = {}) {
+  const rules = settings.autoGroup.rules;
+  if (!rules[index]) return;
+  rules[index] = { ...rules[index], ...patch };
+  await saveSettings(settings);
+  if (!skipRender) renderRules();
+}
+
+async function addRule() {
+  settings.autoGroup.rules = [...settings.autoGroup.rules, { ...DEFAULT_RULE }];
+  await saveSettings(settings);
+  renderRules();
+}
+
+async function deleteRule(index) {
+  settings.autoGroup.rules = settings.autoGroup.rules.filter((_, i) => i !== index);
+  await saveSettings(settings);
+  renderRules();
+}
+
+async function moveRule(index, dir) {
+  const rules = settings.autoGroup.rules;
+  const target = index + dir;
+  if (target < 0 || target >= rules.length) return;
+  const next = [...rules];
+  [next[index], next[target]] = [next[target], next[index]];
+  settings.autoGroup.rules = next;
+  await saveSettings(settings);
+  renderRules();
 }
 
 /** Resolve "match browser" to a concrete palette and stamp it on <html>. */

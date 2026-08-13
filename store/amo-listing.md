@@ -98,13 +98,30 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 
 ## Version notes (1.4.0)
 
-    Added Auto-group: build a list of domain / hostname / URL / host+path / title rules, each
-    pointing at a named, coloured tab group, and either group new tabs live as they open or run
-    "Group tabs now" on demand. Rules are checked top to bottom, and grouping never pulls a tab out
-    of a group you made by hand. New "Group tabs (saved rules)" entry on the toolbar menu and the
-    tab right-click menu; bindable from the browser's own shortcuts page (ships unassigned —
-    Chromium caps suggested shortcuts at four per extension and the other four were already spoken
-    for).
+*Paste into the Release Notes field. Plain text; AMO also accepts simple HTML if you'd rather
+bold the headings.*
+
+    Auto-group
+
+    Build a list of rules — domain, hostname, URL, host + path or title, matched by contains / is
+    exactly / starts with / regex — each pointing at a named, coloured tab group. Rules are checked
+    top to bottom and the first match decides a tab's group; a tab that matches nothing is left
+    alone.
+
+    Turn on "Automatically group new tabs as they open" to have it happen live, or leave it off and
+    press "Group tabs now" when you want it. Either way it only ever adds a tab to the group its
+    rule points at — it never pulls a tab out of a group you put it in by hand.
+
+    Also in this release
+
+    - "Group tabs (saved rules)" is on the toolbar menu and on a tab's right-click menu. It ships
+      without a keyboard shortcut; assign one from about:addons, gear icon, Manage Extension
+      Shortcuts.
+    - The popup's tab bar was refitted for the sixth panel so no label is cramped.
+
+Why the shortcut ships unassigned is a packaging detail, not something a user needs: Chromium caps
+suggested shortcuts at four per extension, and the other four were already taken. Keep that out of
+the listing.
 
 Previous release (1.3.0):
 

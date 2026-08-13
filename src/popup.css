@@ -346,9 +346,14 @@ body {
   border: 0;
   background: none;
   color: var(--muted);
-  padding: 7px 4px;
+  /*
+   * Six tabs in a 400px popup leaves ~61px each. "Duplicates" needs 57px at
+   * 12px, which spills into the padding and leaves the labels touching, so the
+   * nav runs a step smaller than the body text.
+   */
+  padding: 7px 2px;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 2px solid transparent;

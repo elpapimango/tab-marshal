@@ -130,10 +130,8 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | `8-theme-latte.png` | Catppuccin Latte |
 | `9-theme-nord.png` | Nord |
 
-They are generated from the real popup against a fixed sample session, not mocked up.
-**The 1.4.0 renumbering above (adding `3-group.png`) is not done yet** — the files in
-`store/screenshots/` still reflect 1.3.0's five panels. Recapture and renumber before submitting
-1.4.0.
+They are generated from the real popup against a fixed sample session, not mocked up, and are
+current as of 1.4.0 — all six panels, renumbered around `3-group.png`.
 
 ## Notes for the reviewer
 

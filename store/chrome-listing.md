@@ -98,19 +98,29 @@ is collected in the first place.
 
 ---
 
-## Version notes (1.5.1)
+## Version notes (1.6.0)
 
 **The Chrome Web Store has no release-notes field.** Neither the listing nor the update flow shows
 per-version notes to users; Google's own guidance is to fold an update log into the detailed
-description if you want one. Nothing is needed here for either 1.5.0 or 1.5.1.
+description if you want one.
 
-That is not an omission. Both releases only stop the extension acting on tabs another extension has
-hidden, and Chrome has no API for hiding tabs, so there is nothing a Chrome user can see — the same
-reason the ZEN SPACES paragraph is dropped from the description above. Behaviour on Chrome is
-unchanged from 1.4.0.
+1.6.0 is the first release since 1.4.0 that a Chrome user can actually notice, so unlike 1.5.0 and
+1.5.1 it is not a no-op here:
 
-What it does need is a line for the reviewer, since the diff touches tab-ordering code. That goes in
-the test instructions below.
+- Sorting a large window is much quicker, because tabs headed for neighbouring positions now move
+  together instead of one at a time.
+- Settings survive fast typing. A filter box wrote to sync storage on every keystroke and could
+  exceed Chrome's 120-writes-a-minute limit, at which point the setting was silently lost.
+- `https://example.com:80/` is no longer treated as the same address as `https://example.com/`, so a
+  tab is no longer closed as a duplicate of a URL it does not actually match.
+- Two tabs opening in the same instant could leave one unrecognised as new, which skipped Auto-Group
+  and the duplicate check for it.
+- Auto-Group leaves tabs in popup windows opened by web apps alone.
+- Favicons in the Duplicates and Reload lists are requested without cookies; a site that does not
+  allow anonymous requests shows a coloured initial instead of its icon.
+
+None of it needs a new permission. If you want an update log in the description, the first two bullets
+are the ones worth a user's attention.
 
 ---
 
@@ -124,8 +134,20 @@ offers. Same content as AMO's reviewer notes, plus what changed in this version:
     Firefox — manifest.json intentionally declares both background.service_worker and
     background.scripts for that reason; Chrome uses the service worker and ignores the scripts key.
 
-    Changes in 1.5.0 and 1.5.1: tabs hidden by another extension are excluded from every action —
-    1.5.1 completes that for the new-tab duplicate check and for tab selection — and sorting now
-    writes tabs back into the strip positions they already occupied instead of packing them towards
-    the front of the window. All of it is a no-op on Chrome, which has no API for hiding tabs, so
-    visible behaviour is identical to 1.4.0. No new permissions and no new APIs.
+    Changes in 1.6.0, all within the existing permissions and using no new APIs. Sorting now passes
+    an array of tab ids to a single tabs.move call for each run of tabs bound for consecutive
+    indices, rather than one call per tab; the resulting order is unchanged, and a batch the browser
+    refuses is retried tab by tab. Settings writes are debounced by 300ms, because writing on every
+    keystroke exceeded storage.sync's write quota and lost the setting. URL normalisation for
+    duplicate matching no longer strips ports 80 and 443, which had folded https://host:80/ into
+    https://host/. The set of tabs awaiting their first URL is now accessed through a serialised
+    queue, so two tabs created in the same instant cannot overwrite each other's entry. Auto-Group
+    checks windows.get().type before grouping, matching what the duplicate watch already did.
+    Favicon <img> elements set crossOrigin="anonymous" so the request carries no cookies, with a
+    locally drawn coloured initial as the fallback when a host declines the CORS request. User-supplied
+    regular expressions are run against at most 2048 characters of a page-supplied title.
+
+    Changes in 1.5.0 and 1.5.1, for context: tabs hidden by another extension are excluded from every
+    action, and sorting writes tabs back into the strip positions they already occupied instead of
+    packing them towards the front of the window. Both are no-ops on Chrome, which has no API for
+    hiding tabs.

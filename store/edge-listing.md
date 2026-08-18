@@ -91,13 +91,17 @@ user-generated content, no ads, and no data collection, so it should clear the l
 
 ---
 
-## Version notes (1.5.1)
+## Version notes (1.6.0)
 
 **Partner Center has no release-notes field either.** The submission is Packages / Availability /
-Properties / Privacy / Store listings / Age ratings, and none of them take per-version notes, so
-nothing user-facing is needed for 1.5.0 or 1.5.1 — both only stop the extension acting on tabs
-another extension has hidden, and Edge, like Chrome, has no API for hiding tabs. Behaviour on Edge is
-unchanged from 1.4.0.
+Properties / Privacy / Store listings / Age ratings, and none of them take per-version notes.
+
+Unlike 1.5.0 and 1.5.1, 1.6.0 is visible on Edge: sorting a large window is much quicker, settings no
+longer get lost when a filter box is typed into quickly, `https://example.com:80/` is no longer
+matched as a duplicate of `https://example.com/`, two tabs opening at the same instant are both
+recognised as new, Auto-Group leaves web-app popup windows alone, and favicons in the Duplicates and
+Reload lists are fetched without cookies — a site that declines an anonymous request shows a coloured
+initial instead of its icon. No new permissions.
 
 What Partner Center does have is **Notes for certification**, and Microsoft explicitly asks that an
 update include "information about the changes made to the extension" there. The paragraph below
@@ -115,8 +119,20 @@ content as the other two listings, plus what changed in this version:
     background.service_worker and background.scripts — Edge uses the service worker, the same as
     Chrome; the scripts key is there only for Firefox, which loads the same folder unpacked.
 
-    Changes in 1.5.0 and 1.5.1: tabs hidden by another extension are excluded from every action —
-    1.5.1 completes that for the new-tab duplicate check and for tab selection — and sorting now
-    writes tabs back into the strip positions they already occupied instead of packing them towards
-    the front of the window. All of it is a no-op on Edge, which has no API for hiding tabs, so
-    visible behaviour is identical to 1.4.0. No new permissions and no new APIs.
+    Changes in 1.6.0, all within the existing permissions and using no new APIs. Sorting now passes
+    an array of tab ids to a single tabs.move call for each run of tabs bound for consecutive
+    indices, rather than one call per tab; the resulting order is unchanged, and a batch the browser
+    refuses is retried tab by tab. Settings writes are debounced by 300ms, because writing on every
+    keystroke exceeded storage.sync's write quota and lost the setting. URL normalisation for
+    duplicate matching no longer strips ports 80 and 443, which had folded https://host:80/ into
+    https://host/. The set of tabs awaiting their first URL is now accessed through a serialised
+    queue, so two tabs created in the same instant cannot overwrite each other's entry. Auto-Group
+    checks windows.get().type before grouping, matching what the duplicate watch already did.
+    Favicon <img> elements set crossOrigin="anonymous" so the request carries no cookies, with a
+    locally drawn coloured initial as the fallback when a host declines the CORS request. User-supplied
+    regular expressions are run against at most 2048 characters of a page-supplied title.
+
+    Changes in 1.5.0 and 1.5.1, for context: tabs hidden by another extension are excluded from every
+    action, and sorting writes tabs back into the strip positions they already occupied instead of
+    packing them towards the front of the window. Both are no-ops on Edge, which has no API for
+    hiding tabs.

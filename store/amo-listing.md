@@ -78,7 +78,7 @@ Ten themes, including light, dark, and browser-matching variants of Catppuccin, 
 
 PRIVACY
 
-No host permissions, no content scripts, and nothing about your browsing is sent anywhere. The only outbound requests are the favicons shown in the duplicate and reload lists, loaded from each site's own address with no referrer.
+No host permissions, no content scripts, and nothing about your browsing is sent anywhere. The only outbound requests are the favicons shown in the duplicate and reload lists, loaded from each site's own address with no referrer and no cookies.
 
 Open source under the MIT licence: https://github.com/elpapimango/tab-marshal
 
@@ -100,10 +100,36 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.5.1)
+## Version notes (1.6.0)
 
 *Paste into the Release Notes field. Plain text; AMO also accepts simple HTML if you'd rather
 bold the headings.*
+
+    Faster sorting, settings that cannot get lost, and cookieless icons
+
+    Sorting a big window used to move tabs one at a time, and you could watch the strip churn its way
+    through them. Tabs going to neighbouring positions now move together, so a few hundred tabs is a
+    handful of operations instead of a few hundred.
+
+    Settings were written on every keystroke, and the browser's sync storage allows 120 writes a
+    minute — typing a filter at any normal speed went over the limit, and the setting was silently
+    lost. Writes now wait for you to stop typing, and if one still fails the popup says so instead of
+    quietly dropping it.
+
+    Three fixes to things acting on their own. Two tabs opening in the same instant could leave one of
+    them unrecognised as new, so Auto-Group skipped it and the duplicate check never ran on it. A URL
+    written with an explicit port — https://example.com:80/ — was treated as the same address as the
+    one without, so one of the two tabs could be closed as a duplicate when it was not. And
+    Auto-Group no longer touches a tab in a popup window opened by a web app.
+
+    The favicons in the Duplicates and Reload lists are now requested without cookies, so a site you
+    are signed in to can no longer tell that your account opened the popup. Sites that do not allow
+    anonymous requests show a coloured initial instead of their icon.
+
+    Also: a filter or sort pattern is no longer run against more than the first 2048 characters of a
+    page's title, so a page cannot stall the extension with a very long one.
+
+Previous release (1.5.1):
 
     Two more places that now respect your Zen spaces
 
@@ -164,11 +190,15 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | `8-theme-latte.png` | Catppuccin Latte |
 | `9-theme-nord.png` | Nord |
 
-They are generated from the real popup against a fixed sample session, not mocked up, and are
-current as of 1.5.1 — all six panels, renumbered around `3-group.png`. Neither 1.5.0 nor 1.5.1
-changed a panel these show: 1.5.0's only visible addition is the Sort panel's "Zen detected" line,
-which appears on Zen alone and so is absent from shots captured on Chromium, and 1.5.1 has no UI at
-all.
+They are generated from the real popup against a fixed sample session, not mocked up. All six panels,
+renumbered around `3-group.png`. Neither 1.5.0 nor 1.5.1 changed a panel these show: 1.5.0's only
+visible addition is the Sort panel's "Zen detected" line, which appears on Zen alone and so is absent
+from shots captured on Chromium, and 1.5.1 has no UI at all.
+
+**Recapture `4-duplicates.png` and `5-reload.png` before submitting 1.6.0.** Both show rows of
+favicons, and 1.6.0 requests those without cookies — any site in the sample session that does not
+allow anonymous requests now shows a coloured initial instead. The existing shots are not wrong about
+the layout, but they no longer match what a fresh run produces. No other panel is affected.
 
 ## Notes for the reviewer
 

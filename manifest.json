@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Marshal",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Sort and auto-group tabs by domain, URL, title or regex. Find and close duplicates, prevent new ones, and reload in bulk.",
   "author": "wienerworks",
   "homepage_url": "https://github.com/elpapimango/tab-marshal",

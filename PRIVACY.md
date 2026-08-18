@@ -5,9 +5,12 @@ Tab Marshal collects, stores and transmits nothing about you or your browsing.
 - **No host permissions and no content scripts.** The extension never reads a page's content —
   its `tabs` permission only exposes tab metadata the browser already tracks (URL, title, pinned
   state, group membership).
-- **No network requests of its own.** The only thing ever fetched over the network is a site's own
-  favicon, shown in the duplicate and reload lists, requested directly from that site with
-  `referrerPolicy: no-referrer` so the site is not told which extension asked.
+- **No request that can identify you.** The only thing ever fetched over the network is a site's own
+  favicon, shown in the duplicate and reload lists, requested directly from that site. It carries
+  `referrerPolicy: no-referrer`, so the site is not told which extension asked, and it is made in
+  anonymous CORS mode, so it carries no cookies — a site you are signed in to is not told that your
+  account opened the popup. A site that does not allow anonymous access simply gets a coloured
+  initial in place of its icon.
 - **No analytics, telemetry, or crash reporting.** Nothing is sent to the developer or to any third
   party, ever.
 - **Settings stay local.** Sort options, duplicate-match rules, reload filters, Auto-group rules and

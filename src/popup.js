@@ -4,6 +4,7 @@ import { MATCH_MODES } from './lib/duplicates.js';
 import { DUPLICATE_ACTIONS } from './lib/watch.js';
 import { SELECTIONS, SELECT_SOURCES, FILTER_FIELDS, FILTER_MODES } from './lib/select.js';
 import { GROUP_COLORS, DEFAULT_RULE } from './lib/autogroup.js';
+import { getDomain } from './lib/keys.js';
 import { THEMES, resolveTheme } from './lib/theme.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
 import {
@@ -504,22 +505,7 @@ function tabRow(tab, trailing = '', tooltip = '') {
   const li = document.createElement('li');
   li.title = tooltip || tab.title || tab.url || '';
 
-  const img = document.createElement('img');
-  img.alt = '';
-  // Don't tell the site which extension page asked for its icon.
-  img.referrerPolicy = 'no-referrer';
-  const icon = faviconUrl(tab);
-  // An empty src is not "no image" — some engines resolve it against the
-  // document and request the page itself. Leave the attribute off instead; the
-  // slot keeps its width either way, so rows stay aligned.
-  if (icon) {
-    img.src = icon;
-    // A site whose icon has moved or is unreachable would show a broken image.
-    img.addEventListener('error', () => {
-      img.style.visibility = 'hidden';
-    });
-  }
-  li.append(img);
+  li.append(faviconFor(tab));
 
   const text = document.createElement('div');
   text.className = 'dupe-text';
@@ -585,6 +571,59 @@ async function onReload() {
   } finally {
     el.reload.disabled = false;
   }
+}
+
+/**
+ * The icon slot for one row.
+ *
+ * The site's own icon where it can be had without identifying the user, and a
+ * monogram where it cannot — so the slot is always filled and rows stay aligned.
+ */
+function faviconFor(tab) {
+  const src = faviconUrl(tab);
+  if (!src) return monogram(tab);
+
+  const img = document.createElement('img');
+  img.alt = '';
+  // Don't tell the site which extension page asked for its icon...
+  img.referrerPolicy = 'no-referrer';
+  // ...and don't tell it who is asking. A plain image request carries the site's
+  // cookies, so a site the user is signed in to learns that *that account*
+  // opened the popup — and up to PREVIEW_ROWS sites learn it in the same
+  // instant. Anonymous mode makes it a credential-less CORS request instead. A
+  // host that does not allow that fails to load, which is what the monogram is
+  // for, so this trades some real icons for an unidentifiable request.
+  img.crossOrigin = 'anonymous';
+  img.src = src;
+  img.addEventListener('error', () => img.replaceWith(monogram(tab)), { once: true });
+  return img;
+}
+
+/**
+ * A stand-in for a site's icon: its first letter over a colour derived from the
+ * domain, so the same site always looks the same and the lists stay scannable
+ * without a single request leaving the popup.
+ */
+function monogram(tab) {
+  const name = getDomain(tab && tab.url) || '?';
+  const span = document.createElement('span');
+  span.className = 'favicon-mono';
+  // The title and URL are right beside it; the letter is decoration.
+  span.setAttribute('aria-hidden', 'true');
+  const letter = name.match(/[a-z0-9]/i);
+  // The slot is 16px, so one character is all that stays legible.
+  span.textContent = letter ? letter[0].toUpperCase() : '?';
+  // Hue only. Saturation and lightness are fixed in the stylesheet so the letter
+  // stays readable on all ten palettes.
+  span.style.setProperty('--mono-hue', String(hueForName(name)));
+  return span;
+}
+
+/** Same cheap string hash as autogroup's colorForName, spread over a hue wheel. */
+function hueForName(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return hash % 360;
 }
 
 /**

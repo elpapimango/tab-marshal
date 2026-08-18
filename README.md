@@ -373,11 +373,16 @@ anywhere. See [PRIVACY.md](PRIVACY.md) for the full statement, written for the s
 
 The one thing that leaves the machine is favicons. The duplicate and reload lists show each tab's
 own icon, loaded from the address the tab reports — so opening those lists can request an icon from
-a site you already have open, usually straight from the browser cache. The request carries no
-referrer. Chromium can serve these from its own cache with no request at all through a `_favicon/`
-endpoint, but that needs a `favicon` permission Firefox rejects as invalid, which would put a
-warning on every Firefox install; the shared path was the better trade. Delete the `img` from
-`tabRow()` in `src/popup.js` if you would rather have no requests at all.
+a site you already have open, usually straight from the browser cache.
+
+That request carries no referrer and, since 1.6.0, no cookies: it is made in anonymous CORS mode, so
+a site you are signed in to cannot tell that your account was the one that opened the popup. The
+cost is that a host which does not allow anonymous access fails the load, and the row falls back to a
+coloured initial derived from the domain — deterministic, so a site always looks the same. Chromium
+can serve icons from its own cache with no request at all through a `_favicon/` endpoint, but that
+needs a `favicon` permission Firefox rejects as invalid, which would put a warning on every Firefox
+install; the shared path was the better trade. Return `monogram(tab)` unconditionally from
+`faviconFor()` in `src/popup.js` if you would rather have no requests at all.
 
 ## Development
 

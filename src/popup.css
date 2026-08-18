@@ -575,10 +575,30 @@ button.danger:not(:disabled) {
   border-bottom: 1px solid var(--line);
 }
 
-.dupe-list img {
+.dupe-list img,
+.dupe-list .favicon-mono {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+}
+
+/*
+ * Stands in for a site icon that cannot be fetched without cookies. Only the hue
+ * varies, per domain; the rest is fixed here so white stays legible on it in
+ * every palette.
+ */
+.favicon-mono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 3px;
+  background: hsl(var(--mono-hue, 210) 42% 40%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
 }
 
 .dupe-text {

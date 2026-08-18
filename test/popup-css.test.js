@@ -37,6 +37,24 @@ test('every element the markup hides is covered by that rule', () => {
   }
 });
 
+test('the monogram fills the same slot as a real favicon', () => {
+  // A row's icon is either an <img> or a .favicon-mono span, swapped at runtime
+  // when a cookieless favicon request fails. If only the img is sized, the swap
+  // collapses the slot and every row below shifts — which no property check on
+  // the JS side would notice.
+  const rule = CSS.match(/\.dupe-list img,\s*\.dupe-list \.favicon-mono\s*\{([^}]*)\}/);
+  assert.ok(rule, 'the 16px slot rule no longer covers .favicon-mono');
+  assert.match(rule[1], /width:\s*16px/);
+  assert.match(rule[1], /height:\s*16px/);
+  assert.match(JS, /class(?:Name)?\s*=\s*'favicon-mono'/, 'nothing creates the monogram any more');
+});
+
+test('favicon requests are made without credentials', () => {
+  // The one outbound request the extension makes must not identify the user.
+  assert.match(JS, /crossOrigin\s*=\s*'anonymous'/, 'favicon requests would carry cookies again');
+  assert.match(JS, /referrerPolicy\s*=\s*'no-referrer'/);
+});
+
 test('classes used on hideable rows do set display, which is why the rule is needed', () => {
   // If this ever stops being true the override is harmless, but the comment
   // above would be stale — so assert the hazard actually exists.

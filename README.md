@@ -470,6 +470,11 @@ cursor, so everything left of the cursor is already final and no move disturbs a
 members are only ever rearranged inside their own range, which is what keeps groups contiguous.
 Sorting is idempotent — running it twice produces the same order.
 
+The cursor counts sorted tabs, not strip indices: it steps through `slots`, the indices the visible
+tabs already occupied, which `readWindow()` records before planning. That is what keeps a sort out of
+a hidden tab's slot — see [Zen spaces](#zen-spaces). With nothing hidden, `slots` is 0, 1, 2 … and
+this is the plain cursor it has always been.
+
 ## License
 
 [MIT](LICENSE) © 2026 Mattias Holmertz

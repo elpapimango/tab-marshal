@@ -98,11 +98,33 @@ is collected in the first place.
 
 ---
 
-## Notes for the reviewer
+## Version notes (1.5.0)
 
-Optional field, same content as AMO's:
+**The Chrome Web Store has no release-notes field.** Neither the listing nor the update flow shows
+per-version notes to users; Google's own guidance is to fold an update log into the detailed
+description if you want one. Nothing is needed here for 1.5.0.
+
+That is not an omission. The release stops the extension acting on tabs another extension has
+hidden, and Chrome has no API for hiding tabs, so there is nothing a Chrome user can see — the same
+reason the ZEN SPACES paragraph is dropped from the description above. Behaviour on Chrome is
+unchanged from 1.4.0.
+
+What it does need is a line for the reviewer, since the diff touches tab-ordering code. That goes in
+the test instructions below.
+
+---
+
+## Test instructions
+
+Its own step in the dashboard, alongside the privacy fields, and the only reviewer-facing field CWS
+offers. Same content as AMO's reviewer notes, plus what changed in this version:
 
     The source is plain ES modules, unminified and dependency-free; the uploaded zip is exactly
     what is in the repository at the tagged commit. The same folder also runs unpacked in Edge and
     Firefox — manifest.json intentionally declares both background.service_worker and
     background.scripts for that reason; Chrome uses the service worker and ignores the scripts key.
+
+    Changes in 1.5.0: tabs hidden by another extension are excluded from every action, and sorting
+    now writes tabs back into the strip positions they already occupied instead of packing them
+    towards the front of the window. Both are no-ops on Chrome, which has no API for hiding tabs, so
+    visible behaviour is identical to 1.4.0. No new permissions and no new APIs.

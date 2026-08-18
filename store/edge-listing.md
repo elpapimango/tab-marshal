@@ -47,11 +47,14 @@ question in different wording ("What does your extension do?"):
 
 ### Name
 
+*Read-only in Partner Center — populated from `name` in manifest.json.*
+
     Tab Marshal
 
 ### Short description
 
-*Max 150 characters — a little more room than Chrome's 132.*
+*Also read-only: Partner Center fills it from `description` in manifest.json, so changing it means
+editing the manifest and re-uploading the package, not typing in this field. Already matches.*
 
     Sort and auto-group tabs by domain, URL, title or regex. Find and close duplicates, prevent new ones, and reload in bulk.
 
@@ -68,9 +71,10 @@ trimming for.
 
 ### Screenshots
 
-Same source as the Chrome listing — 1280x800, 1 to 5 images, same order/captions as
-`store/amo-listing.md`'s table. Edge additionally accepts a 1400x560 promo tile; skip unless the
-listing is later pushed as featured.
+Same source as the Chrome listing — 1280x800 (Partner Center also accepts 640x480), up to six
+images rather than Chrome's five, same order and captions as `store/amo-listing.md`'s table. Edge
+additionally accepts a 440x280 small tile and a 1400x560 large tile; skip both unless the listing is
+later pushed as featured.
 
 ### Search terms
 
@@ -87,11 +91,31 @@ user-generated content, no ads, and no data collection, so it should clear the l
 
 ---
 
-## Notes for the reviewer
+## Version notes (1.5.0)
 
-Optional field, same content as the other two listings:
+**Partner Center has no release-notes field either.** The submission is Packages / Availability /
+Properties / Privacy / Store listings / Age ratings, and none of them take per-version notes, so
+nothing user-facing is needed for 1.5.0 — the release only stops the extension acting on tabs another
+extension has hidden, and Edge, like Chrome, has no API for hiding tabs. Behaviour on Edge is
+unchanged from 1.4.0.
+
+What Partner Center does have is **Notes for certification**, and Microsoft explicitly asks that an
+update include "information about the changes made to the extension" there. The paragraph below
+carries it.
+
+---
+
+## Notes for certification
+
+Optional text box on the **Submit your extension** page, reached from the **Publish** button. Same
+content as the other two listings, plus what changed in this version:
 
     The source is plain ES modules, unminified and dependency-free; the uploaded zip is exactly
     what is in the repository at the tagged commit. manifest.json intentionally declares both
     background.service_worker and background.scripts — Edge uses the service worker, the same as
     Chrome; the scripts key is there only for Firefox, which loads the same folder unpacked.
+
+    Changes in 1.5.0: tabs hidden by another extension are excluded from every action, and sorting
+    now writes tabs back into the strip positions they already occupied instead of packing them
+    towards the front of the window. Both are no-ops on Edge, which has no API for hiding tabs, so
+    visible behaviour is identical to 1.4.0. No new permissions and no new APIs.

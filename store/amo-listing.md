@@ -68,6 +68,10 @@ RELOAD
 
 Reload the active tab, its tab group, every tab, or every tab matching a filter on domain, hostname, URL, path or title. Hard-reload past the cache, skip pinned tabs, leave sleeping tabs asleep, and stagger the batch so sixty tabs do not hit the network at once.
 
+ZEN SPACES
+
+Zen keeps every space's tabs in one window and hides the ones belonging to other spaces. Nothing here ever touches a hidden tab, so sorting, selecting, closing duplicates and reloading all stay inside the space you are looking at, and your other spaces keep both their place in the strip and their own order. The Sort panel says so when it detects Zen.
+
 EXTRAS
 
 Ten themes, including light, dark, and browser-matching variants of Catppuccin, Nord and Dracula. Keyboard shortcuts for sorting, closing duplicates, reloading, and — because Firefox has no shortcut for it — duplicating the active tab.
@@ -96,40 +100,44 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.4.0)
+## Version notes (1.5.0)
 
 *Paste into the Release Notes field. Plain text; AMO also accepts simple HTML if you'd rather
 bold the headings.*
 
-    Auto-group
+    Every action stays inside your Zen space
 
-    Build a list of rules — domain, hostname, URL, host + path or title, matched by contains / is
-    exactly / starts with / regex — each pointing at a named, coloured tab group. Rules are checked
-    top to bottom and the first match decides a tab's group; a tab that matches nothing is left
-    alone.
+    Zen keeps every space's tabs in one window and hides the ones belonging to other spaces. Tab
+    Marshal now never touches a hidden tab, so sorting, selecting, closing duplicates and reloading
+    all stay inside the space you are looking at. Your other spaces keep both their place in the tab
+    strip and their own order.
 
-    Turn on "Automatically group new tabs as they open" to have it happen live, or leave it off and
-    press "Group tabs now" when you want it. Either way it only ever adds a tab to the group its
-    rule points at — it never pulls a tab out of a group you put it in by hand.
+    This fixes a real bug, not just adds a feature. Sorting used to pack the tabs it moved towards
+    the front of the strip, which on Zen could drag them straight across a tab it was meant to leave
+    alone. It now reuses exactly the positions those tabs already occupied. If nothing is hidden,
+    the result is the same as before.
 
     Also in this release
 
-    - "Group tabs (saved rules)" is on the toolbar menu and on a tab's right-click menu. It ships
-      without a keyboard shortcut; assign one from about:addons, gear icon, Manage Extension
-      Shortcuts.
-    - The popup's tab bar was refitted for the sixth panel so no label is cramped.
+    - The Sort panel shows a line confirming this when it detects Zen. The rule itself is not
+      conditional on Zen: any Firefox extension can hide tabs, and a hidden tab is left alone
+      wherever it came from.
 
-Why the shortcut ships unassigned is a packaging detail, not something a user needs: Chromium caps
-suggested shortcuts at four per extension, and the other four were already taken. Keep that out of
-the listing.
+One thing to keep out of the listing: nsZenWorkspaces, Zen's own workspace controller, is
+browser-chrome JavaScript that no WebExtension can reach, and there is no supported API that names a
+space or lists them. The hidden-tab rule above needs none. Useful if a user asks why the UI cannot
+name or target a space — not useful in release notes.
 
-Previous release (1.3.0):
+Previous release (1.4.0):
 
-    First public release. Sort tabs and tab groups by domain, hostname, URL, host + path, title,
-    recency or a regular expression. Select tabs in bulk and hand them to the browser's own
-    right-click menu. Find and close duplicates, or catch them as they open. Reload tabs by filter,
-    group or all at once. Ten themes, and keyboard shortcuts for everything. Most actions are also
-    on the tab's own right-click menu.
+    Auto-group. Build a list of rules — domain, hostname, URL, host + path or title, matched by
+    contains / is exactly / starts with / regex — each pointing at a named, coloured tab group. Rules
+    are checked top to bottom and the first match decides a tab's group; a tab that matches nothing
+    is left alone. Turn on "Automatically group new tabs as they open" to have it happen live, or
+    leave it off and press "Group tabs now" when you want it. It never pulls a tab out of a group you
+    put it in by hand. "Group tabs (saved rules)" is on the toolbar menu and on a tab's right-click
+    menu, without a keyboard shortcut; assign one from about:addons, gear icon, Manage Extension
+    Shortcuts.
 
 ## Screenshots
 
@@ -148,7 +156,9 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | `9-theme-nord.png` | Nord |
 
 They are generated from the real popup against a fixed sample session, not mocked up, and are
-current as of 1.4.0 — all six panels, renumbered around `3-group.png`.
+current as of 1.5.0 — all six panels, renumbered around `3-group.png`. 1.5.0 changed no panel that
+these show: its only visible addition is the Sort panel's "Zen detected" line, which appears on Zen
+alone and so is absent from shots captured on Chromium.
 
 ## Notes for the reviewer
 

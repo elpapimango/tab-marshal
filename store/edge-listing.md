@@ -57,8 +57,10 @@ question in different wording ("What does your extension do?"):
 
 ### Description
 
-Same body copy as `store/amo-listing.md`'s **Description** section. Partner Center has no separate
-length limit worth trimming for.
+Same body copy as `store/amo-listing.md`'s **Description** section, minus the ZEN SPACES paragraph —
+Edge, like Chrome, has no API for hiding tabs, so that paragraph describes nothing an Edge user can
+see (the behaviour still ships in this build). Partner Center has no separate length limit worth
+trimming for.
 
 ### Category
 

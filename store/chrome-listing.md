@@ -24,8 +24,11 @@ extension. Submit at <https://chrome.google.com/webstore/devconsole>, upload
 
 Same body copy as `store/amo-listing.md`'s **Description** section (SORTING / TAB GROUPS /
 SELECTING / AUTO-GROUP / DUPLICATES / RELOAD / EXTRAS / PRIVACY) — the Chrome Web Store has no
-separate character limit worth trimming for. Paste it as-is; CWS accepts plain paragraphs the same
-way AMO does.
+separate character limit worth trimming for. CWS accepts plain paragraphs the same way AMO does.
+
+**Drop the ZEN SPACES paragraph.** Zen is a Firefox fork, and the rule it describes — never act on a
+hidden tab — has nothing to act on in Chrome, which has no API for hiding tabs. The behaviour still
+ships in this build; it is the listing copy that would only confuse a Chrome reader.
 
 ### Category
 

@@ -421,6 +421,20 @@ declares both background styles on purpose. Submission text for all three stores
 and [edge-listing.md](store/edge-listing.md), plus the shared [PRIVACY.md](PRIVACY.md) every store's
 privacy-policy field points at.
 
+The three forms are not parallel, so a release does not update the three files the same way:
+
+- **AMO is the only one with a release-notes field.** Its `Version notes` section carries the current
+  release plus one condensed previous release; older ones are dropped as they age out.
+- **Chrome and Edge have no release-notes field anywhere** — not in the listing, not in the update
+  flow. No per-version notes reach users on either store. Each instead carries the change summary in
+  the one reviewer-facing field it has: Chrome's **test instructions** step, and Edge's **Notes for
+  certification**, where Microsoft asks that an update describe what changed.
+- **The long description is written once**, in `amo-listing.md`; the other two point at it rather
+  than copying it. The `ZEN SPACES` paragraph is the exception both drop, since neither Chromium
+  browser has an API for hiding tabs and so has nothing that paragraph describes.
+- **Edge's Name and Short description are read-only.** Partner Center fills them from the manifest,
+  so those two change by editing `manifest.json` and re-uploading the package, not in the form.
+
 ### Layout
 
 ```

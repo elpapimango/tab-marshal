@@ -126,3 +126,38 @@ test('www and trailing slash normalisation can be turned off', () => {
   assert.equal(findDuplicates(list, {}).closeCount, 1);
   assert.equal(findDuplicates(list, { ignoreWww: false }).closeCount, 0);
 });
+
+test('a non-default port is part of the address', () => {
+  // `URL` drops only the scheme's own default port, so https://a.com:80/ still
+  // carries one — and it is a different address from https://a.com/. Treating
+  // 80 and 443 as always-default folded the two together and closed one of them.
+  const list = tabs([
+    [1, 'https://a.com/x'],
+    [2, 'https://a.com:80/x']
+  ]);
+  assert.equal(findDuplicates(list, {}).closeCount, 0);
+
+  const alsoHttp = tabs([
+    [1, 'http://a.com/x'],
+    [2, 'http://a.com:443/x']
+  ]);
+  assert.equal(findDuplicates(alsoHttp, {}).closeCount, 0);
+});
+
+test('a default port written out is still the same address', () => {
+  // The other half of the same rule: :443 on https is the default, so `URL`
+  // removes it and the two really are one address.
+  const list = tabs([
+    [1, 'https://a.com/x'],
+    [2, 'https://a.com:443/x']
+  ]);
+  assert.equal(findDuplicates(list, {}).closeCount, 1);
+});
+
+test('two tabs on the same non-default port are duplicates', () => {
+  const list = tabs([
+    [1, 'http://localhost:3000/app'],
+    [2, 'http://localhost:3000/app']
+  ]);
+  assert.equal(findDuplicates(list, {}).closeCount, 1);
+});

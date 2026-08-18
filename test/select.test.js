@@ -8,6 +8,7 @@ import {
   prepareSelectOptions,
   explainEmpty
 } from '../src/lib/select.js';
+import { MAX_MATCH_LENGTH } from '../src/lib/keys.js';
 
 const NONE = -1;
 
@@ -174,4 +175,23 @@ test('inverting a filter that matches everything explains the empty result', () 
   const o = { selection: 'filter', field: 'url', mode: 'contains', value: 'https', negate: true };
   assert.equal(selectTabs(SAMPLE, sel(o)).length, 0);
   assert.match(explainEmpty(o), /Every tab matches/);
+});
+
+test('a regex filter only ever sees the first MAX_MATCH_LENGTH characters', () => {
+  // The page chooses its own title, and Auto-Group tests rules against it in the
+  // service worker as a tab opens — so a pattern that backtracks badly plus a
+  // very long title would hang the worker. The haystack is clamped for that.
+  const long = { id: 1, url: 'https://a.com/', title: `${'x'.repeat(MAX_MATCH_LENGTH)}needle` };
+  const short = { id: 2, url: 'https://a.com/', title: `${'x'.repeat(10)}needle` };
+  const opts = prepareSelectOptions({ selection: 'filter', field: 'title', mode: 'regex', value: 'needle' });
+
+  assert.equal(matchesFilter(short, opts), true);
+  assert.equal(matchesFilter(long, opts), false, 'past the cap the text is not there to match');
+});
+
+test('the clamp does not touch a plain substring filter', () => {
+  // Only the regex engine is at risk, and `includes` on a long string is not.
+  const long = { id: 1, url: 'https://a.com/', title: `${'x'.repeat(MAX_MATCH_LENGTH)}needle` };
+  const opts = prepareSelectOptions({ selection: 'filter', field: 'title', mode: 'contains', value: 'needle' });
+  assert.equal(matchesFilter(long, opts), true);
 });

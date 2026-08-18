@@ -2,7 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getDomain, getHostname, getRegistrableDomain } from '../src/lib/keys.js';
-import { planSort, planToTabIds, prepareOptions, TAB_GROUP_ID_NONE } from '../src/lib/sorter.js';
+import {
+  makeKeyCache,
+  makeTabComparator,
+  planSort,
+  planToTabIds,
+  prepareOptions,
+  TAB_GROUP_ID_NONE
+} from '../src/lib/sorter.js';
 
 const NONE = TAB_GROUP_ID_NONE;
 
@@ -212,4 +219,40 @@ test('sorting is idempotent', () => {
   });
   const second = planToTabIds(planSort(reordered, groups, o));
   assert.deepEqual(second, first);
+});
+
+test('the key cache answers once per tab per criterion', () => {
+  // Keys are memoised because a comparison sort asks for the same tab's key over
+  // and over, and 'domain' builds a URL and walks the suffix list every time.
+  let built = 0;
+  const counting = { id: 1, index: 0, groupId: NONE, pinned: false, get url() {
+    built++;
+    return 'https://www.example.co.uk/page';
+  } };
+
+  const keyOf = makeKeyCache(prepareOptions({ primary: 'domain' }));
+  assert.equal(keyOf(counting, 'domain'), 'example.co.uk');
+  assert.equal(keyOf(counting, 'domain'), 'example.co.uk');
+  assert.equal(keyOf(counting, 'domain'), 'example.co.uk');
+  assert.equal(built, 1, 'the url should be read once, however often the key is asked for');
+
+  // A different criterion is a different key, and gets its own answer.
+  assert.equal(keyOf(counting, 'hostname'), 'www.example.co.uk');
+  assert.equal(built, 2);
+});
+
+test('a shared key cache does not change what a sort produces', () => {
+  const list = tabs([
+    [1, 'https://zebra.com/b'],
+    [2, 'https://apple.co.uk/a'],
+    [3, 'https://zebra.com/a'],
+    [4, 'https://apple.co.uk/b']
+  ]);
+  const o = prepareOptions({ primary: 'domain', secondary: 'url' });
+
+  // The comparator with its own fresh cache, and the one planSort shares across
+  // every pass, have to agree.
+  const standalone = [...list].sort(makeTabComparator(o)).map((t) => t.id);
+  assert.deepEqual(planToTabIds(planSort(list, [], o)), standalone);
+  assert.deepEqual(standalone, [2, 4, 3, 1]);
 });

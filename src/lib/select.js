@@ -5,7 +5,7 @@
  * "which tabs", not "which tabs to reload".
  */
 
-import { getDomain, getHostname, getHostPath } from './keys.js';
+import { clampForMatch, getDomain, getHostname, getHostPath } from './keys.js';
 import { TAB_GROUP_ID_NONE } from './sorter.js';
 
 export const SELECTIONS = [
@@ -121,7 +121,8 @@ export function matchesFilter(tab, opts) {
     // No pattern means no selection — inverting nothing must not become
     // "everything", which would be a very expensive misunderstanding.
     if (!opts.compiledFilter) return false;
-    return flip(opts.compiledFilter.test(haystack), opts);
+    // Clamped because the page, not the user, decides how long a title is.
+    return flip(opts.compiledFilter.test(clampForMatch(haystack)), opts);
   }
 
   if (!opts.value) return false; // an empty filter matches nothing, never everything
@@ -150,6 +151,10 @@ function flip(hit, opts) {
  * @param {object} context  { activeTabId, activeGroupId } from the current window
  */
 export function selectTabs(tabs, options, context = {}) {
+  // Options that have already been prepared pass straight through. Unprepared
+  // ones pick up the *reload* defaults, and the two option sets disagree about
+  // skipUnloaded — so the Select path must always hand in prepareSelectOptions()
+  // output, never raw settings.
   const opts = prepareReloadOptions(options);
 
   if (opts.selection === 'active') {
@@ -178,7 +183,10 @@ export function selectTabs(tabs, options, context = {}) {
 
 /** Explains an empty selection, so the UI can say why nothing matched. */
 export function explainEmpty(options, context = {}) {
-  const opts = { ...DEFAULT_RELOAD_OPTIONS, ...options };
+  // Only `selection`, `value` and `negate` are read, so there is nothing to
+  // default here — and merging one panel's defaults into the other panel's
+  // options is how you get an explanation that does not match what ran.
+  const opts = options || {};
   if (opts.selection === 'group') {
     const gid = context.activeGroupId;
     if (gid === undefined || gid === TAB_GROUP_ID_NONE) return 'The active tab is not in a tab group.';

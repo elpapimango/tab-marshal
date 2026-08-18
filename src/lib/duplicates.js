@@ -55,7 +55,11 @@ export function normalizeUrl(url, opts = DEFAULT_DUPLICATE_OPTIONS) {
   let path = u.pathname || '';
   if (opts.ignoreTrailingSlash && path.length > 1) path = path.replace(/\/+$/, '');
 
-  const port = u.port && u.port !== '80' && u.port !== '443' ? `:${u.port}` : '';
+  // `URL` already drops the port when it is the scheme's own default, so
+  // anything still here is significant. Stripping 80 and 443 unconditionally
+  // would fold https://example.com:80/ into https://example.com/ — a different
+  // address, and one of the two tabs would be closed for it.
+  const port = u.port ? `:${u.port}` : '';
 
   switch (opts.matchMode) {
     case 'host-path':

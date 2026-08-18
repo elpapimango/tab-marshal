@@ -4,7 +4,7 @@
  * the chrome.* APIs lives in apply.js, which keeps this file unit testable.
  */
 
-import { getDomain, getHostname, getHostPath, parseUrl } from './keys.js';
+import { clampForMatch, getDomain, getHostname, getHostPath, parseUrl } from './keys.js';
 
 export const TAB_GROUP_ID_NONE = -1;
 
@@ -96,7 +96,9 @@ export function tabKey(tab, criterion, opts = {}) {
 function regexKey(tab, opts) {
   const source = opts.regexSource === 'title' ? tab.title || '' : tab.url || '';
   if (!opts.compiledRegex) return null;
-  const m = source.match(opts.compiledRegex);
+  // Clamped because a sort can be triggered from the context menu, which runs in
+  // the service worker, against a title the page chose.
+  const m = clampForMatch(source).match(opts.compiledRegex);
   if (!m) return null;
   // A capture group lets the user pick out just the part to sort on.
   return m[1] !== undefined ? m[1] : m[0];
@@ -127,20 +129,46 @@ export function compareKeysDirectional(a, b, dir) {
   return compareKeys(a, b) * dir;
 }
 
-/** Comparator over tabs honouring primary/secondary criteria and direction. */
-export function makeTabComparator(opts) {
+/**
+ * Memoised tabKey(), for one sort run.
+ *
+ * A comparison sort asks for the same tab's key O(log n) times over, and the
+ * URL-derived criteria are not cheap — 'domain' builds a URL object and then
+ * walks the suffix list. Keys are computed once per tab per criterion instead,
+ * held against the tab object itself, which turns thousands of URL parses on a
+ * busy window back into one per tab.
+ *
+ * Valid only as long as the tabs are not mutated mid-sort, which is exactly the
+ * lifetime of a single planSort().
+ */
+export function makeKeyCache(opts) {
+  const byCriterion = new Map();
+  return (tab, criterion) => {
+    let keys = byCriterion.get(criterion);
+    if (!keys) {
+      keys = new Map();
+      byCriterion.set(criterion, keys);
+    }
+    if (!keys.has(tab)) keys.set(tab, tabKey(tab, criterion, opts));
+    return keys.get(tab);
+  };
+}
+
+/**
+ * Comparator over tabs honouring primary/secondary criteria and direction.
+ *
+ * @param {Function} [keyOf] a makeKeyCache() lookup to share with the caller, so
+ *   block ordering and member ordering do not each key the same tabs again.
+ */
+export function makeTabComparator(opts, keyOf = makeKeyCache(opts)) {
   const dir = opts.descending ? -1 : 1;
   return (t1, t2) => {
-    const r = compareKeysDirectional(
-      tabKey(t1, opts.primary, opts),
-      tabKey(t2, opts.primary, opts),
-      dir
-    );
+    const r = compareKeysDirectional(keyOf(t1, opts.primary), keyOf(t2, opts.primary), dir);
     if (r !== 0) return r;
     if (opts.secondary && opts.secondary !== 'none' && opts.secondary !== opts.primary) {
       // The secondary criterion always runs ascending, so "Z→A by domain, A→Z
       // by title" is expressible.
-      const r2 = compareKeys(tabKey(t1, opts.secondary, opts), tabKey(t2, opts.secondary, opts));
+      const r2 = compareKeys(keyOf(t1, opts.secondary), keyOf(t2, opts.secondary));
       if (r2 !== 0) return r2;
     }
     return (t1.index ?? 0) - (t2.index ?? 0);
@@ -190,7 +218,10 @@ export function splitIntoBlocks(tabs) {
  */
 export function planSort(tabs, groups, options) {
   const opts = prepareOptions(options);
-  const cmp = makeTabComparator(opts);
+  // One cache for the whole run: the pinned sort, each group's member sort and
+  // the block ordering all ask about the same tabs.
+  const keyOf = makeKeyCache(opts);
+  const cmp = makeTabComparator(opts, keyOf);
   const groupsById = new Map((groups || []).map((g) => [g.id, g]));
   const { pinned, blocks } = splitIntoBlocks(tabs);
 
@@ -210,7 +241,7 @@ export function planSort(tabs, groups, options) {
   } else if (opts.target === 'ungrouped') {
     orderedBlocks = reorderLoneTabsInPlace(blocks, cmp);
   } else {
-    orderedBlocks = orderBlocks(blocks, groupsById, cmp, opts);
+    orderedBlocks = orderBlocks(blocks, groupsById, cmp, opts, keyOf);
   }
 
   return {
@@ -244,7 +275,7 @@ function reorderLoneTabsInPlace(blocks, cmp) {
   return out;
 }
 
-function orderBlocks(blocks, groupsById, cmp, opts) {
+function orderBlocks(blocks, groupsById, cmp, opts, keyOf) {
   const groupBlocks = blocks.filter((b) => b.kind === 'group');
   const tabBlocks = blocks.filter((b) => b.kind === 'tab');
 
@@ -252,8 +283,8 @@ function orderBlocks(blocks, groupsById, cmp, opts) {
     const dir = opts.descending ? -1 : 1;
     return [...blocks].sort((a, b) => {
       const r = compareKeysDirectional(
-        blockKey(a, groupsById, opts),
-        blockKey(b, groupsById, opts),
+        blockKey(a, groupsById, opts, keyOf),
+        blockKey(b, groupsById, opts, keyOf),
         dir
       );
       if (r !== 0) return r;
@@ -283,9 +314,9 @@ function sortGroupBlocks(groupBlocks, groupsById, cmp, opts) {
 }
 
 /** Key used to position a block relative to other blocks. */
-function blockKey(block, groupsById, opts) {
-  if (block.kind === 'tab') return tabKey(block.tabs[0], opts.primary, opts);
-  if (opts.groupOrderBy === 'tabs') return tabKey(block.repTab, opts.primary, opts);
+function blockKey(block, groupsById, opts, keyOf) {
+  if (block.kind === 'tab') return keyOf(block.tabs[0], opts.primary);
+  if (opts.groupOrderBy === 'tabs') return keyOf(block.repTab, opts.primary);
   return groupMetaKey(block, groupsById, opts);
 }
 

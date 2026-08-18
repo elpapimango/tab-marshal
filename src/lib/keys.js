@@ -59,6 +59,24 @@ const MULTI_LABEL_SUFFIXES = new Set([
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 
+/**
+ * Longest string a user-supplied regular expression is ever tested against.
+ *
+ * Patterns come from the user, but the text they run over does not: a page picks
+ * its own title, and Auto-Group tests every rule against a new tab's title in
+ * the service worker as the tab opens. A pattern that backtracks badly plus a
+ * long crafted title would hang the worker, taking the menus and the duplicate
+ * watch with it. No filter or sort key anyone writes needs more of a title or
+ * URL than this.
+ */
+export const MAX_MATCH_LENGTH = 2048;
+
+/** Trim a haystack to the length a regex is allowed to see. */
+export function clampForMatch(text) {
+  const s = text || '';
+  return s.length > MAX_MATCH_LENGTH ? s.slice(0, MAX_MATCH_LENGTH) : s;
+}
+
 /** Parse a URL, returning null instead of throwing. */
 export function parseUrl(url) {
   if (!url) return null;

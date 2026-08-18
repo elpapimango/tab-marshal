@@ -10,13 +10,21 @@ import assert from 'node:assert/strict';
 const NONE = -1;
 
 /** Minimal stand-in for the parts of chrome.* that apply.js uses. */
-function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}) {
+function makeFakeChrome(
+  initial,
+  { failReload = [], failMove = [], failGroup = false, windowType = 'normal' } = {}
+) {
   let strip = initial.map((t, i) => ({ ...t, index: i, windowId: t.windowId ?? 1 }));
   const session = {};
   const reloads = [];
   const activated = [];
   const highlights = [];
   const groupMeta = new Map();
+  const moveCalls = [];
+  // Ordered record of the calls that change things, so a test can assert that
+  // one kind happened before another.
+  const events = [];
+  const unmovable = new Set(failMove);
   let nextId = 1000;
   let nextGroupId = 100;
   const unreloadable = new Set(failReload);
@@ -28,6 +36,8 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
     _reloads: () => reloads.map((r) => ({ ...r })),
     _activated: () => [...activated],
     _highlights: () => highlights.map((h) => ({ ...h })),
+    _moveCalls: () => moveCalls.map((c) => [...c]),
+    _events: () => [...events],
     _groupMeta: (groupId) => groupMeta.get(groupId),
     windows: {
       getCurrent: async () => ({ id: 1 }),
@@ -73,12 +83,22 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
         if (options.active) activated.push(id);
         return { id };
       },
-      move: async (id, { index }) => {
-        const from = strip.findIndex((t) => t.id === id);
-        if (from === -1) throw new Error(`no such tab ${id}`);
-        const [tab] = strip.splice(from, 1);
-        strip.splice(Math.min(index, strip.length), 0, tab);
-        reindex();
+      // Both engines take a single id or an array, and for an array they move
+      // each tab in turn to an index that advances as they go — so one call with
+      // n ids is the same series of moves the caller used to make itself.
+      move: async (ids, { index }) => {
+        moveCalls.push(Array.isArray(ids) ? [...ids] : [ids]);
+        events.push('move');
+        let at = index;
+        for (const id of [].concat(ids)) {
+          if (unmovable.has(id)) throw new Error(`cannot move tab ${id}`);
+          const from = strip.findIndex((t) => t.id === id);
+          if (from === -1) throw new Error(`no such tab ${id}`);
+          const [tab] = strip.splice(from, 1);
+          strip.splice(Math.min(at, strip.length), 0, tab);
+          reindex();
+          at++;
+        }
       },
       remove: async (ids) => {
         const set = new Set([].concat(ids));
@@ -86,6 +106,7 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
         reindex();
       },
       group: async ({ tabIds, groupId, createProperties } = {}) => {
+        if (failGroup) throw new Error('grouping is not allowed here');
         const ids = [].concat(tabIds);
         const gid = groupId != null ? groupId : nextGroupId++;
         for (const id of ids) {
@@ -125,8 +146,11 @@ function makeFakeChrome(initial, { failReload = [], windowType = 'normal' } = {}
     },
     storage: {
       session: {
-        get: async (key) => (session[key] === undefined ? {} : { [key]: session[key] }),
-        set: async (obj) => Object.assign(session, obj)
+        get: async (key) => (session[key] === undefined ? {} : { [key]: structuredClone(session[key]) }),
+        set: async (obj) => {
+          events.push('session.set');
+          Object.assign(session, structuredClone(obj));
+        }
       }
     }
   };
@@ -866,5 +890,156 @@ test('applyAutoGroupTab is a no-op when auto-group is off or the tab is pinned',
       autoGroup: { enabled: true, rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }
     });
     assert.equal(pinned.acted, false);
+  });
+});
+
+test('applyAutoGroupTab leaves a popup window alone', async () => {
+  await withFakeChrome(
+    [{ id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE, windowId: 1 }],
+    async (apply, chrome) => {
+      const result = await apply.applyAutoGroupTab(chrome._tabs()[0], {
+        autoGroup: { enabled: true, rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] }
+      });
+      // A web app's popup window is not part of the strip the user manages.
+      assert.equal(result.acted, false);
+      assert.equal(chrome._tabs()[0].groupId, NONE);
+    },
+    { windowType: 'popup' }
+  );
+});
+
+test('a refused grouping is reported, not read as "nothing matched"', async () => {
+  await withFakeChrome(
+    [{ id: 1, url: 'https://github.com/a', title: 'A', pinned: false, groupId: NONE, windowId: 1 }],
+    async (apply) => {
+      const result = await apply.groupTabs(
+        settings({}, {}, {}, {}, {}, { rules: [groupRule({ value: 'github.com', groupName: 'Dev' })] })
+      );
+      assert.equal(result.ok, false);
+      assert.equal(result.grouped, 0);
+      assert.match(result.message, /refused/);
+      assert.doesNotMatch(result.message, /No tabs matched/);
+    },
+    { failGroup: true }
+  );
+});
+
+/* ------------------------------------------------------------------ *
+ * Batched moves
+ *
+ * `tabs.move` takes an array, so a run of tabs bound for consecutive slots is
+ * one round-trip rather than one per tab. What these check is that the batching
+ * never changes where anything lands.
+ * ------------------------------------------------------------------ */
+
+const FOUR_TABS = [
+  { id: 1, url: 'https://d.com/', title: 'd', pinned: false, groupId: NONE },
+  { id: 2, url: 'https://c.com/', title: 'c', pinned: false, groupId: NONE },
+  { id: 3, url: 'https://b.com/', title: 'b', pinned: false, groupId: NONE },
+  { id: 4, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE }
+];
+
+test('tabs headed for consecutive slots move in one call', async () => {
+  await withFakeChrome(FOUR_TABS, async (apply, chrome) => {
+    await apply.sortTabs(settings());
+    assert.deepEqual(chrome._strip(), [4, 3, 2, 1]);
+    assert.deepEqual(chrome._moveCalls(), [[4, 3, 2, 1]]);
+  });
+});
+
+test('a group is positioned before its members are arranged inside it', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://z.com/', title: 'z', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://a.com/2', title: '2', pinned: false, groupId: 10 },
+      { id: 3, url: 'https://a.com/1', title: '1', pinned: false, groupId: 10 }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings({ secondary: 'url' }));
+      assertAllGroupsContiguous(chrome);
+      // The group's members share a call; the lone tab gets its own.
+      assert.deepEqual(chrome._moveCalls(), [[3, 2], [1]]);
+    }
+  );
+});
+
+test('pinned tabs never share a move with unpinned ones', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://b.com/', title: 'b', pinned: true, groupId: NONE },
+      { id: 2, url: 'https://a.com/', title: 'a', pinned: true, groupId: NONE },
+      { id: 3, url: 'https://d.com/', title: 'd', pinned: false, groupId: NONE },
+      { id: 4, url: 'https://c.com/', title: 'c', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      assert.deepEqual(chrome._strip(), [2, 1, 4, 3]);
+      assert.deepEqual(chrome._moveCalls(), [[2, 1], [4, 3]]);
+    }
+  );
+});
+
+test('a hidden tab between two sortable ones splits the run', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://c.com/', title: 'c', pinned: false, groupId: NONE },
+      { id: 9, url: 'https://elsewhere.com/', title: 'hidden', pinned: false, groupId: NONE, hidden: true },
+      { id: 2, url: 'https://b.com/', title: 'b', pinned: false, groupId: NONE },
+      { id: 3, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      // The visible tabs hold slots 0, 2 and 3, so the first one is on its own.
+      assert.deepEqual(chrome._moveCalls(), [[3], [2, 1]]);
+      // The hidden tab is never itself moved — it drifts only as tabs shuffle
+      // past it, exactly as it did before the moves were batched.
+      assert.ok(!chrome._moveCalls().flat().includes(9));
+      const visible = chrome._strip().filter((id) => id !== 9);
+      assert.deepEqual(visible, [3, 2, 1]);
+    }
+  );
+});
+
+test('one tab refusing to move does not take its whole run with it', async () => {
+  await withFakeChrome(
+    FOUR_TABS,
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      const calls = chrome._moveCalls();
+      // The batch is attempted, then walked tab by tab because it fails whole.
+      assert.deepEqual(calls[0], [4, 3, 2, 1]);
+      assert.ok(calls.length > 1, 'the run should be retried one tab at a time');
+      const order = chrome._strip();
+      assert.ok(order.indexOf(4) < order.indexOf(2), `4 before 2, got ${order}`);
+      assert.ok(order.indexOf(2) < order.indexOf(1), `2 before 1, got ${order}`);
+    },
+    { failMove: [3] }
+  );
+});
+
+test('the undo snapshot is stored before any tab moves', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://b.com/', title: 'b', pinned: false, groupId: NONE },
+      { id: 2, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      await apply.sortTabs(settings());
+      const events = chrome._events();
+      // A sort interrupted half way still has to be undoable, so the write goes
+      // first — and there is only ever one of them, however many windows.
+      assert.equal(events[0], 'session.set');
+      assert.equal(events.filter((e) => e === 'session.set').length, 1);
+    }
+  );
+});
+
+test('a window with nothing to sort says so and snapshots nothing', async () => {
+  await withFakeChrome([{ id: 1, url: 'https://a.com/', title: 'a', pinned: false, groupId: NONE }], async (apply, chrome) => {
+    const result = await apply.sortTabs(settings());
+    assert.equal(result.ok, false);
+    assert.match(result.message, /Nothing to sort/);
+    assert.deepEqual(chrome._events(), []);
+    assert.equal(await apply.hasUndo(settings()), false);
   });
 });

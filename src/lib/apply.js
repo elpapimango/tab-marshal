@@ -57,19 +57,44 @@ async function applyPlan(plan, slots) {
   // sortable tabs already held, so nothing lands on a hidden tab's slot.
   const nextSlot = () => (slots ? slots[step] : step);
 
-  for (const tabId of plan.pinned) {
-    await moveTab(tabId, nextSlot());
+  // Tabs bound for consecutive slots go in one call. `tabs.move` takes an array
+  // and lands it at `index` in array order, which is exactly what the per-tab
+  // loop used to spell out one round-trip at a time — and a round-trip per tab
+  // is what makes a few hundred tabs visibly churn through the strip.
+  const run = { ids: [], start: -1 };
+
+  const flush = async () => {
+    if (!run.ids.length) return;
+    const { ids, start } = run;
+    run.ids = [];
+    run.start = -1;
+    await moveTabs(ids, start);
+  };
+
+  const place = async (tabId) => {
+    const slot = nextSlot();
     step++;
     moves++;
-  }
+    // A gap in the slots — a hidden tab sitting between two sortable ones — ends
+    // the run, since one call can only ever fill consecutive indices.
+    if (run.ids.length && slot !== run.start + run.ids.length) await flush();
+    if (!run.ids.length) run.start = slot;
+    run.ids.push(tabId);
+  };
+
+  for (const tabId of plan.pinned) await place(tabId);
+  // Pinned and unpinned tabs never share a call: the browser treats the two
+  // regions of the strip as separate, and a move across the boundary is refused.
+  await flush();
 
   for (const block of plan.blocks) {
     if (block.kind === 'tab') {
-      await moveTab(block.tabId, nextSlot());
-      step++;
-      moves++;
+      await place(block.tabId);
       continue;
     }
+    // The group has to be positioned before its members are arranged inside it,
+    // so whatever is queued has to land first.
+    await flush();
     const groupStart = nextSlot();
     if (hasTabGroups()) {
       try {
@@ -79,13 +104,27 @@ async function applyPlan(plan, slots) {
         // moving the member tabs below still produces the right order.
       }
     }
-    for (const tabId of block.tabIds) {
-      await moveTab(tabId, nextSlot());
-      step++;
-      moves++;
-    }
+    for (const tabId of block.tabIds) await place(tabId);
+    await flush();
   }
+  await flush();
   return moves;
+}
+
+/**
+ * Move a run of tabs onto consecutive indices starting at `index`.
+ *
+ * The batch form succeeds or fails as a unit, so one tab closing mid-sort would
+ * take its whole run with it. The retry walks the run tab by tab — which is what
+ * the loop here used to do for every tab, every time.
+ */
+async function moveTabs(ids, index) {
+  if (ids.length === 1) return moveTab(ids[0], index);
+  try {
+    await api.tabs.move(ids, { index });
+  } catch {
+    for (let i = 0; i < ids.length; i++) await moveTab(ids[i], index + i);
+  }
 }
 
 async function moveTab(tabId, index) {
@@ -96,15 +135,27 @@ async function moveTab(tabId, index) {
   }
 }
 
-async function saveUndoSnapshot(windowId, tabs) {
-  const snapshot = tabs.map((t) => ({
+function snapshotOf(tabs) {
+  return tabs.map((t) => ({
     id: t.id,
     index: t.index,
     pinned: t.pinned,
     groupId: t.groupId ?? TAB_GROUP_ID_NONE
   }));
-  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
-  store[windowId] = { savedAt: Date.now(), snapshot };
+}
+
+async function readUndoStore() {
+  return (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+}
+
+/**
+ * Record where the tabs were, for every window about to be sorted, in one write.
+ * Read-modify-writing the whole store per window made a sort across four windows
+ * eight storage round-trips before a single tab had moved.
+ */
+async function saveUndoSnapshots(byWindowId) {
+  const store = await readUndoStore();
+  for (const [windowId, snapshot] of byWindowId) store[windowId] = { snapshot };
   await api.storage.session.set({ [UNDO_KEY]: store });
 }
 
@@ -112,15 +163,24 @@ async function saveUndoSnapshot(windowId, tabs) {
 export async function sortTabs(settings) {
   const opts = prepareOptions(settings.sort);
   const windowIds = await getWindowIds(settings.scope);
-  let tabCount = 0;
 
+  // Every window is read before anything moves, so the snapshots can go out in
+  // one write and still go out first — a sort interrupted half way has to stay
+  // undoable.
+  const jobs = [];
   for (const windowId of windowIds) {
-    const { tabs, groups, slots } = await readWindow(windowId);
-    if (tabs.length < 2) continue;
-    await saveUndoSnapshot(windowId, tabs);
-    const plan = planSort(tabs, groups, opts);
-    await applyPlan(plan, slots);
-    tabCount += tabs.length;
+    const state = await readWindow(windowId);
+    if (state.tabs.length < 2) continue;
+    jobs.push({ windowId, ...state });
+  }
+  if (!jobs.length) return { ok: false, message: 'Nothing to sort.' };
+
+  await saveUndoSnapshots(new Map(jobs.map((job) => [job.windowId, snapshotOf(job.tabs)])));
+
+  let tabCount = 0;
+  for (const job of jobs) {
+    await applyPlan(planSort(job.tabs, job.groups, opts), job.slots);
+    tabCount += job.tabs.length;
   }
 
   const windowLabel = windowIds.length === 1 ? 'window' : `${windowIds.length} windows`;
@@ -129,7 +189,7 @@ export async function sortTabs(settings) {
 
 /** Restore the tab order captured before the most recent sort. */
 export async function undoSort(settings) {
-  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+  const store = await readUndoStore();
   const windowIds = (await getWindowIds(settings.scope)).filter((id) => store[id]);
   if (!windowIds.length) return { ok: false, message: 'Nothing to undo.' };
 
@@ -149,7 +209,7 @@ export async function undoSort(settings) {
 }
 
 export async function hasUndo(settings) {
-  const store = (await api.storage.session.get(UNDO_KEY))[UNDO_KEY] || {};
+  const store = await readUndoStore();
   const windowIds = await getWindowIds(settings.scope);
   return windowIds.some((id) => store[id]);
 }
@@ -177,6 +237,7 @@ async function applyGroupPlan(windowId, plan, byTitle) {
   }
 
   let grouped = 0;
+  let failed = 0;
   for (const bucket of buckets.values()) {
     try {
       if (bucket.existingGroupId != null) {
@@ -187,11 +248,16 @@ async function applyGroupPlan(windowId, plan, byTitle) {
         byTitle.set(bucket.title.toLowerCase(), { id: groupId, title: bucket.title, color: bucket.color });
       }
       grouped += bucket.tabIds.length;
-    } catch {
+    } catch (err) {
       // A tab closed mid-run, or the group vanished between planning and now.
+      // Counted rather than swallowed: "nothing matched your rules" and "the
+      // grouping was refused" are different answers, and reporting the first
+      // when the second happened sends the user off to edit working rules.
+      failed += bucket.tabIds.length;
+      console.warn('[Tab Marshal] group', bucket.title, err);
     }
   }
-  return grouped;
+  return { grouped, failed };
 }
 
 /**
@@ -211,19 +277,25 @@ export async function groupTabs(settings) {
 
   const windowIds = await getWindowIds(settings.scope);
   let grouped = 0;
+  let failed = 0;
   for (const windowId of windowIds) {
     const { tabs, groups } = await readWindow(windowId);
     const eligible = tabs.filter((t) => !t.pinned);
     const byTitle = groupsByTitle(groups);
     const plan = planGroupAssignments(eligible, opts.rules, byTitle);
-    if (plan.length) grouped += await applyGroupPlan(windowId, plan, byTitle);
+    if (!plan.length) continue;
+    const outcome = await applyGroupPlan(windowId, plan, byTitle);
+    grouped += outcome.grouped;
+    failed += outcome.failed;
   }
 
-  return {
-    ok: true,
-    grouped,
-    message: grouped ? `Grouped ${grouped} ${plural(grouped, 'tab')}.` : 'No tabs matched a rule.'
-  };
+  if (!grouped) {
+    return failed
+      ? { ok: false, grouped: 0, message: `The browser refused to group ${failed} matching ${plural(failed, 'tab')}.` }
+      : { ok: true, grouped: 0, message: 'No tabs matched a rule.' };
+  }
+  const tail = failed ? `, ${failed} refused` : '';
+  return { ok: true, grouped, message: `Grouped ${grouped} ${plural(grouped, 'tab')}${tail}.` };
 }
 
 /**
@@ -236,13 +308,28 @@ export async function applyAutoGroupTab(tab, settings) {
   const opts = settings.autoGroup || DEFAULT_AUTOGROUP_OPTIONS;
   if (!opts.enabled || !opts.rules || !opts.rules.length) return { acted: false };
 
+  // A popup window opened by a web app is not part of the tab strip the user
+  // manages, so it is left alone here for the same reason the duplicate watch
+  // leaves it alone.
+  if (!(await isNormalWindow(tab.windowId))) return { acted: false };
+
   const groups = await api.tabGroups.query({ windowId: tab.windowId });
   const byTitle = groupsByTitle(groups);
   const plan = planGroupAssignments([tab], opts.rules, byTitle);
   if (!plan.length) return { acted: false };
 
-  const grouped = await applyGroupPlan(tab.windowId, plan, byTitle);
+  const { grouped } = await applyGroupPlan(tab.windowId, plan, byTitle);
   return { acted: grouped > 0 };
+}
+
+/** False for a web app's popup window, and for a window that just went away. */
+async function isNormalWindow(windowId) {
+  try {
+    const win = await api.windows.get(windowId);
+    return win.type === 'normal';
+  } catch {
+    return false;
+  }
 }
 
 async function queryScopedTabs(scope) {
@@ -284,9 +371,13 @@ async function reloadContext() {
   };
 }
 
-/** Which tabs a reload would hit, without touching anything. */
-export async function previewReload(settings) {
-  const opts = prepareReloadOptions(settings.reload);
+/**
+ * Which tabs a reload would hit, without touching anything.
+ *
+ * @param {object} [opts] already-prepared reload options, so reloadTabs() does
+ *   not compile the filter and re-derive the scope a second time.
+ */
+export async function previewReload(settings, opts = prepareReloadOptions(settings.reload)) {
   // "The active tab" and its group are window-local regardless of scope.
   const scope = opts.selection === 'active' || opts.selection === 'group' ? 'window' : settings.scope;
   const tabs = await queryScopedTabs(scope);
@@ -306,7 +397,7 @@ export async function previewReload(settings) {
  */
 export async function reloadTabs(settings) {
   const opts = prepareReloadOptions(settings.reload);
-  const { tabs, count, reason } = await previewReload(settings);
+  const { tabs, count, reason } = await previewReload(settings, opts);
   if (!count) return { ok: false, reloaded: 0, message: reason };
 
   let reloaded = 0;
@@ -409,12 +500,7 @@ export async function respondToNewTab(tab, settings) {
 
   // Popup windows opened by web apps are not part of the tab strip the user
   // manages, so leave them alone.
-  try {
-    const win = await api.windows.get(tab.windowId);
-    if (win.type !== 'normal') return { acted: false };
-  } catch {
-    return { acted: false };
-  }
+  if (!(await isNormalWindow(tab.windowId))) return { acted: false };
 
   // Hidden tabs are excluded here for the same reason as everywhere else, and it
   // matters most on this path: the watch closes tabs on its own. A copy sitting

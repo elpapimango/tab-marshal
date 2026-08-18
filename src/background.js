@@ -43,23 +43,70 @@ function prefersDark() {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-async function buildMenus() {
-  const settings = await loadSettings();
+/**
+ * Settings, cached for as long as they cannot have changed.
+ *
+ * Every tab creation, navigation, menu click and command needs them, and each
+ * read is a trip to storage. The promise itself is cached, so tabs arriving
+ * together share one read instead of racing several.
+ */
+let settingsPromise = null;
+function currentSettings() {
+  if (!settingsPromise) {
+    settingsPromise = loadSettings();
+    // A read that failed must not be cached, or every event after it inherits
+    // the failure until something happens to write settings.
+    settingsPromise.catch(() => {
+      settingsPromise = null;
+    });
+  }
+  return settingsPromise;
+}
+
+let menuBuild = Promise.resolve();
+
+/**
+ * Rebuild the menu tree, one rebuild at a time.
+ *
+ * Four things ask for one — install, startup, the colour scheme flipping, and
+ * the icon preference changing — and two overlapping runs would remove twice and
+ * then create twice, with the second batch failing on ids that already exist.
+ */
+function buildMenus() {
+  menuBuild = menuBuild.then(rebuildMenus, rebuildMenus);
+  // Nothing awaits this chain, so a failure is reported here or not at all.
+  menuBuild.catch((err) => console.error('[Tab Marshal] menus', err));
+  return menuBuild;
+}
+
+async function rebuildMenus() {
+  const settings = await currentSettings();
   const dark = prefersDark();
   // Only Firefox renders custom menu icons, and only on submenu items. Chromium
   // rejects unknown create() properties outright, so it is never handed the key.
   const withIcons = isFirefox() && settings.menuIcons !== false;
 
-  api.contextMenus.removeAll(() => {
-    createMenuItem({ id: MENU_ROOT, title: 'Tab Marshal' });
-    for (const item of MENU_ITEMS) {
-      createMenuItem({
-        id: item.id,
-        parentId: MENU_ROOT,
-        ...(item.type ? { type: item.type } : { title: item.title }),
-        ...(withIcons && item.icon ? { icons: menuIconPaths(item.icon, dark) } : {})
-      });
-    }
+  await removeAllMenus();
+  createMenuItem({ id: MENU_ROOT, title: 'Tab Marshal' });
+  for (const item of MENU_ITEMS) {
+    createMenuItem({
+      id: item.id,
+      parentId: MENU_ROOT,
+      ...(item.type ? { type: item.type } : { title: item.title }),
+      ...(withIcons && item.icon ? { icons: menuIconPaths(item.icon, dark) } : {})
+    });
+  }
+}
+
+/**
+ * removeAll() is callback-style on Chromium and promise-style on Firefox. Both
+ * are honoured, because the rebuild above can only be serialised if it can tell
+ * when the removal finished.
+ */
+function removeAllMenus() {
+  return new Promise((resolve) => {
+    const maybePromise = api.contextMenus.removeAll(() => resolve());
+    if (maybePromise && typeof maybePromise.then === 'function') maybePromise.then(resolve, resolve);
   });
 }
 
@@ -78,6 +125,8 @@ api.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   const change = changes.tabSorterSettings;
   if (!change) return;
+  // Anything that writes settings invalidates the cache, whatever it changed.
+  settingsPromise = null;
   const before = change.oldValue ? change.oldValue.menuIcons !== false : true;
   const after = change.newValue ? change.newValue.menuIcons !== false : true;
   if (before !== after) buildMenus();
@@ -90,14 +139,18 @@ api.storage.onChanged.addListener((changes, area) => {
  */
 function createMenuItem(props) {
   api.contextMenus.create({ ...props, contexts: MENU_CONTEXTS }, () => {
-    if (api.runtime.lastError) {
-      api.contextMenus.create({ ...props, contexts: MENU_FALLBACK_CONTEXTS });
-    }
+    if (!api.runtime.lastError) return;
+    api.contextMenus.create({ ...props, contexts: MENU_FALLBACK_CONTEXTS }, () => {
+      // Reading lastError is what marks it handled. Without this the browser
+      // logs an unchecked-error warning for an item already given up on.
+      const err = api.runtime.lastError;
+      if (err) console.warn('[Tab Marshal] menu item', props.id, err.message);
+    });
   });
 }
 
 api.contextMenus.onClicked.addListener(async (info, tab) => {
-  const settings = await loadSettings();
+  const settings = await currentSettings();
   const oneOff = (primary, extra = {}) => ({
     ...settings,
     sort: { ...settings.sort, primary, target: 'all', ...extra }
@@ -155,7 +208,7 @@ api.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 api.commands.onCommand.addListener(async (command) => {
-  const settings = await loadSettings();
+  const settings = await currentSettings();
   if (command === 'sort-tabs') return run(() => sortTabs(settings));
   if (command === 'group-tabs') return run(() => groupTabs(settings));
   if (command === 'close-duplicates') return run(() => closeDuplicates(settings));
@@ -177,7 +230,12 @@ api.commands.onCommand.addListener(async (command) => {
  * loses focus, so the popup hands the work to the worker instead of running the
  * loop itself.
  */
-api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Only this extension's own pages may ask. Nothing else can reach here today —
+  // there are no content scripts and no externally_connectable — but the payload
+  // is a settings object that gets compiled into a regular expression and used
+  // to pick tabs, so the sender is checked rather than assumed.
+  if (sender && sender.id !== api.runtime.id) return false;
   if (!message || message.type !== 'reload') return false;
   reloadTabs(message.settings).then(sendResponse, (err) =>
     sendResponse({ ok: false, reloaded: 0, message: err.message || String(err) })
@@ -214,26 +272,49 @@ async function isSuppressed() {
 
 api.runtime.onStartup.addListener(() => suppressWatch(15_000));
 
+/**
+ * Every access to the pending set runs after the one before it.
+ *
+ * Each one is a read, an edit and a write with awaits in between. Two tabs
+ * opening in the same moment — a ctrl-clicked pair, a restored session — would
+ * both read the same map and one write would erase the other, leaving a tab that
+ * is never recognised as new: no auto-group, and no duplicate check.
+ */
+let pendingQueue = Promise.resolve();
+function queuePending(fn) {
+  const result = pendingQueue.then(fn, fn);
+  // A failed access must not poison the queue for every tab after it.
+  pendingQueue = result.then(
+    () => {},
+    () => {}
+  );
+  return result;
+}
+
 async function readPending() {
   return (await api.storage.session.get(PENDING_KEY))[PENDING_KEY] || {};
 }
 
-async function markPending(tabId) {
-  const pending = await readPending();
-  const cutoff = Date.now() - PENDING_TTL_MS;
-  for (const [id, at] of Object.entries(pending)) {
-    if (at < cutoff) delete pending[id];
-  }
-  pending[tabId] = Date.now();
-  await api.storage.session.set({ [PENDING_KEY]: pending });
+function markPending(tabId) {
+  return queuePending(async () => {
+    const pending = await readPending();
+    const cutoff = Date.now() - PENDING_TTL_MS;
+    for (const [id, at] of Object.entries(pending)) {
+      if (at < cutoff) delete pending[id];
+    }
+    pending[tabId] = Date.now();
+    await api.storage.session.set({ [PENDING_KEY]: pending });
+  });
 }
 
-async function takePending(tabId) {
-  const pending = await readPending();
-  if (!pending[tabId]) return false;
-  delete pending[tabId];
-  await api.storage.session.set({ [PENDING_KEY]: pending });
-  return true;
+function takePending(tabId) {
+  return queuePending(async () => {
+    const pending = await readPending();
+    if (!pending[tabId]) return false;
+    delete pending[tabId];
+    await api.storage.session.set({ [PENDING_KEY]: pending });
+    return true;
+  });
 }
 
 api.tabs.onCreated.addListener(async (tab) => {
@@ -269,7 +350,7 @@ async function evaluateTab(tabId, tab, source) {
   try {
     if (await isSuppressed()) return;
 
-    const settings = await loadSettings();
+    const settings = await currentSettings();
     const fresh = tab && tab.url ? tab : await api.tabs.get(tabId);
 
     let tabClosed = false;

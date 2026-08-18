@@ -339,7 +339,7 @@ function wireEvents() {
     if (input.type === 'text') input.addEventListener('input', onSettingChanged);
   });
 
-  el.sort.addEventListener('click', () => act(el.sort, () => sortTabs(settings), { undoable: true }));
+  el.sort.addEventListener('click', () => act(el.sort, () => sortTabs(settings)));
   el.undo.addEventListener('click', () => act(el.undo, () => undoSort(settings)));
   el.findDupes.addEventListener('click', onFindDuplicates);
   el.closeDupes.addEventListener('click', onCloseDuplicates);
@@ -351,15 +351,79 @@ function wireEvents() {
 
   // Keep "match browser" honest if the OS flips while the popup is open.
   darkQuery.addEventListener('change', () => applyTheme(settings.theme));
+
+  // The popup is torn down the moment it loses focus, which can land inside the
+  // debounce window. Nothing can be awaited this late, but handing the write to
+  // storage before the page goes is enough for it to complete.
+  window.addEventListener('pagehide', () => {
+    if (unsaved) saveSettings(settings).catch(() => {});
+  });
+}
+
+/** Close the popup, giving any debounced write its chance to go out first. */
+async function closePopup() {
+  await flushSettings();
+  window.close();
+}
+
+/**
+ * How long to wait for typing to stop before writing settings.
+ *
+ * A filter box fires on every keystroke, and `storage.sync` allows 120 writes a
+ * minute — typing at any normal speed exceeds that, and the write then throws
+ * with the setting quietly unsaved. The same delay also spares one tab query and
+ * one storage read per character.
+ */
+const SAVE_DEBOUNCE_MS = 300;
+
+let saveTimer = null;
+let unsaved = false;
+
+function scheduleSave() {
+  unsaved = true;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSettings, SAVE_DEBOUNCE_MS);
+}
+
+/** Write now, if there is anything to write. Safe to call at any time. */
+async function flushSettings() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (!unsaved) return;
+  unsaved = false;
+  try {
+    await saveSettings(settings);
+  } catch (err) {
+    // Still unsaved, so a later change gets another attempt — and say so, rather
+    // than letting the setting vanish between opening the popup and reopening it.
+    unsaved = true;
+    setStatus(saveErrorMessage(err), true);
+  }
+}
+
+function saveErrorMessage(err) {
+  const raw = (err && err.message) || String(err);
+  if (/QUOTA_BYTES/i.test(raw)) {
+    return 'Too much to sync — try fewer Auto-group rules, or shorter patterns.';
+  }
+  if (/quota|MAX_WRITE/i.test(raw)) {
+    return 'The browser is rate-limiting settings sync; that change is not saved yet.';
+  }
+  return `Could not save settings: ${raw}`;
 }
 
 async function onSettingChanged() {
+  const previousScope = settings.scope;
   settings = readUi();
+  // The parts the user sees immediately stay immediate; only the write and the
+  // queries it would drag along are deferred.
   applyTheme(settings.theme);
   refreshConditionalUi();
   clearDuplicatePreview();
-  await saveSettings(settings);
-  el.undo.disabled = !(await hasUndo(settings));
+  scheduleSave();
+  // Whether there is anything to undo depends only on the scope, so this asks
+  // storage once when the scope moves rather than once per keystroke.
+  if (settings.scope !== previousScope) el.undo.disabled = !(await hasUndo(settings));
   if (document.getElementById('panel-reload').classList.contains('is-active')) {
     await refreshReloadPreview();
   }
@@ -368,14 +432,15 @@ async function onSettingChanged() {
   }
 }
 
-async function act(button, fn, { undoable = false } = {}) {
+async function act(button, fn) {
   button.disabled = true;
   setStatus('Working…');
   try {
     const result = await fn();
     setStatus(result.message, result.ok === false);
-    if (undoable) el.undo.disabled = false;
-    else el.undo.disabled = !(await hasUndo(settings));
+    // Always ask rather than assume a sort left something behind: it writes its
+    // snapshots before it moves anything, so by now the answer is already true.
+    el.undo.disabled = !(await hasUndo(settings));
   } catch (err) {
     setStatus(err.message || String(err), true);
     markRegexInvalid(/regular expression/i.test(err.message || ''));
@@ -541,7 +606,7 @@ async function focusTab(tab) {
   try {
     await api.tabs.update(tab.id, { active: true });
     await api.windows.update(tab.windowId, { focused: true });
-    window.close();
+    await closePopup();
   } catch {
     /* tab went away */
   }
@@ -576,7 +641,7 @@ async function onSelect() {
     }
     // The highlight is the confirmation, and it is behind the popup — close so
     // the tabs can be right-clicked straight away.
-    window.close();
+    await closePopup();
   } catch (err) {
     setStatus(err.message || String(err), true);
     el.selectBtn.disabled = false;
@@ -689,34 +754,36 @@ function iconButton(label, title, onClick) {
   return btn;
 }
 
-async function updateRule(index, patch, { skipRender = false } = {}) {
+// A rule's pattern and group-name boxes fire per keystroke exactly like the
+// filter boxes do, so every one of these goes through the same debounce.
+function updateRule(index, patch, { skipRender = false } = {}) {
   const rules = settings.autoGroup.rules;
   if (!rules[index]) return;
   rules[index] = { ...rules[index], ...patch };
-  await saveSettings(settings);
+  scheduleSave();
   if (!skipRender) renderRules();
 }
 
-async function addRule() {
+function addRule() {
   settings.autoGroup.rules = [...settings.autoGroup.rules, { ...DEFAULT_RULE }];
-  await saveSettings(settings);
+  scheduleSave();
   renderRules();
 }
 
-async function deleteRule(index) {
+function deleteRule(index) {
   settings.autoGroup.rules = settings.autoGroup.rules.filter((_, i) => i !== index);
-  await saveSettings(settings);
+  scheduleSave();
   renderRules();
 }
 
-async function moveRule(index, dir) {
+function moveRule(index, dir) {
   const rules = settings.autoGroup.rules;
   const target = index + dir;
   if (target < 0 || target >= rules.length) return;
   const next = [...rules];
   [next[index], next[target]] = [next[target], next[index]];
   settings.autoGroup.rules = next;
-  await saveSettings(settings);
+  scheduleSave();
   renderRules();
 }
 
@@ -814,7 +881,7 @@ async function onOpenShortcuts() {
 
   try {
     await api.tabs.create({ url });
-    window.close();
+    await closePopup();
   } catch {
     // Some builds refuse to let an extension open browser pages; show the
     // address so it can be pasted instead.

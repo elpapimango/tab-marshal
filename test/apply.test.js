@@ -685,6 +685,72 @@ test('with no hidden tabs the strip is packed exactly as before', async () => {
   );
 });
 
+// The watch is the one path that acts on its own, so a copy in another space
+// must not provoke it: closing the tab the user just opened because of a tab
+// they cannot see is the worst version of this bug.
+const WATCH_HIDDEN = [
+  { id: 1, url: 'https://other.com/', title: 'Other', pinned: false, groupId: NONE, windowId: 1 },
+  { id: 2, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 1, hidden: true },
+  { id: 3, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 1 }
+];
+const hiddenNewTab = () => ({ ...WATCH_HIDDEN[2], index: 2 });
+
+test('the watch never judges a new tab against another space', async () => {
+  for (const action of ['close-new', 'close-old', 'focus-old', 'focus-old-reload']) {
+    await withFakeChrome(WATCH_HIDDEN, async (apply, chrome) => {
+      const result = await apply.respondToNewTab(hiddenNewTab(), settings({}, {}, {}, { onDuplicate: action }));
+      assert.equal(result.acted, false, `${action} found a duplicate in another space`);
+      assert.deepEqual(chrome._strip(), [1, 2, 3], `${action} changed the strip`);
+      assert.deepEqual(chrome._activated(), [], `${action} pulled focus into another space`);
+      assert.deepEqual(chrome._reloads(), [], `${action} reloaded a tab in another space`);
+    });
+  }
+});
+
+test('the sole-tab guard counts only the tabs the user can see', async () => {
+  // Window 1 shows one tab — the one that just opened — and hides two others.
+  // The copy it duplicates is in window 2, so the match is real; what must not
+  // happen is closing the new tab and leaving the space empty.
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 2 },
+      { id: 2, url: 'https://space-b.com/a', title: 'B', pinned: false, groupId: NONE, windowId: 1, hidden: true },
+      { id: 3, url: 'https://space-b.com/b', title: 'B', pinned: false, groupId: NONE, windowId: 1, hidden: true },
+      { id: 4, url: 'https://example.com/docs', title: 'Docs', pinned: false, groupId: NONE, windowId: 1 }
+    ],
+    async (apply, chrome) => {
+      const newTab = { id: 4, url: 'https://example.com/docs', pinned: false, groupId: NONE, windowId: 1, index: 3 };
+      const result = await apply.respondToNewTab(
+        newTab,
+        { ...settings({}, {}, {}, { onDuplicate: 'close-new' }), scope: 'all' }
+      );
+      assert.equal(result.plan.matched, true, 'the copy in the other window is still a duplicate');
+      assert.equal(result.plan.skipped, 'sole-tab', 'but the only visible tab in its window is spared');
+      assert.deepEqual(chrome._strip(), [1, 2, 3, 4]);
+    }
+  );
+});
+
+test('select never reaches a tab in another space', async () => {
+  await withFakeChrome(
+    [
+      { id: 1, url: 'https://a.com/1', title: 'one', pinned: false, groupId: NONE, active: true },
+      { id: 2, url: 'https://a.com/2', title: 'two', pinned: false, groupId: NONE, hidden: true },
+      { id: 3, url: 'https://a.com/3', title: 'three', pinned: false, groupId: NONE }
+    ],
+    async (apply, chrome) => {
+      const preview = await apply.previewSelection(settings());
+      assert.deepEqual(preview.tabs.map((t) => t.id), [1, 3], 'the hidden tab is not a candidate');
+
+      const result = await apply.applySelection(settings());
+      assert.equal(result.selected, 2);
+      // highlight() takes strip indices and activates the first: index 1 is the
+      // hidden tab's slot, so it must not appear.
+      assert.deepEqual(chrome._highlights(), [{ windowId: 1, indices: [0, 2] }]);
+    }
+  );
+});
+
 test('closeDuplicates reports when there is nothing to do', async () => {
   await withFakeChrome(
     [

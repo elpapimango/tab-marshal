@@ -100,35 +100,44 @@ statement that the add-on transmits no user data. Leave the field blank unless A
 - Support site: `https://github.com/elpapimango/tab-marshal/issues`
 - Support email: optional. Anything entered here is public.
 
-## Version notes (1.5.0)
+## Version notes (1.5.1)
 
 *Paste into the Release Notes field. Plain text; AMO also accepts simple HTML if you'd rather
 bold the headings.*
 
-    Every action stays inside your Zen space
+    Two more places that now respect your Zen spaces
 
-    Zen keeps every space's tabs in one window and hides the ones belonging to other spaces. Tab
-    Marshal now never touches a hidden tab, so sorting, selecting, closing duplicates and reloading
-    all stay inside the space you are looking at. Your other spaces keep both their place in the tab
-    strip and their own order.
+    1.5.0 kept sorting, reloading and the Duplicates panel inside the space you are looking at. Two
+    paths were missed, and this release fixes both.
 
-    This fixes a real bug, not just adds a feature. Sorting used to pack the tabs it moved towards
-    the front of the strip, which on Zen could drag them straight across a tab it was meant to leave
-    alone. It now reuses exactly the positions those tabs already occupied. If nothing is hidden,
-    the result is the same as before.
+    The duplicate watch — the one that acts on new tabs by itself — was still comparing a new tab
+    against every space. Opening a page you already had open in another space could close the tab you
+    just opened, close the one in the other space, or switch you to it. It now only ever compares
+    against tabs you can see. It also counts "the last tab in this window", the case where it holds
+    back rather than closing, from the visible tabs, so a space showing a single tab is no longer
+    mistaken for a busy window.
 
-    Also in this release
+    Select could also pick up tabs from another space, and highlighting one would have pulled you out
+    of the space you were in.
 
-    - The Sort panel shows a line confirming this when it detects Zen. The rule itself is not
-      conditional on Zen: any Firefox extension can hide tabs, and a hidden tab is left alone
-      wherever it came from.
+    Nothing else changed: no new permissions, no new options, and no difference at all on a browser
+    without hidden tabs.
+
+Previous release (1.5.0):
+
+    Every action stays inside your Zen space. Zen keeps every space's tabs in one window and hides
+    the ones belonging to other spaces; Tab Marshal never touches a hidden tab, so your other spaces
+    keep both their place in the tab strip and their own order. This also fixed sorting, which used
+    to pack the tabs it moved towards the front of the strip and so could drag them across a tab it
+    was meant to leave alone. The Sort panel shows a line confirming the behaviour when it detects
+    Zen, though the rule itself is not conditional on Zen — any Firefox extension can hide tabs.
 
 One thing to keep out of the listing: nsZenWorkspaces, Zen's own workspace controller, is
 browser-chrome JavaScript that no WebExtension can reach, and there is no supported API that names a
-space or lists them. The hidden-tab rule above needs none. Useful if a user asks why the UI cannot
-name or target a space — not useful in release notes.
+space or lists them. The hidden-tab rule needs none. Useful if a user asks why the UI cannot name or
+target a space — not useful in release notes.
 
-Previous release (1.4.0):
+Earlier release (1.4.0):
 
     Auto-group. Build a list of rules — domain, hostname, URL, host + path or title, matched by
     contains / is exactly / starts with / regex — each pointing at a named, coloured tab group. Rules
@@ -156,9 +165,10 @@ Ready in `store/screenshots/`, 2560x1600 (1280x800 at 2x), upload in this order:
 | `9-theme-nord.png` | Nord |
 
 They are generated from the real popup against a fixed sample session, not mocked up, and are
-current as of 1.5.0 — all six panels, renumbered around `3-group.png`. 1.5.0 changed no panel that
-these show: its only visible addition is the Sort panel's "Zen detected" line, which appears on Zen
-alone and so is absent from shots captured on Chromium.
+current as of 1.5.1 — all six panels, renumbered around `3-group.png`. Neither 1.5.0 nor 1.5.1
+changed a panel these show: 1.5.0's only visible addition is the Sort panel's "Zen detected" line,
+which appears on Zen alone and so is absent from shots captured on Chromium, and 1.5.1 has no UI at
+all.
 
 ## Notes for the reviewer
 

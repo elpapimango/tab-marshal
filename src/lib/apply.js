@@ -246,8 +246,9 @@ export async function applyAutoGroupTab(tab, settings) {
 }
 
 async function queryScopedTabs(scope) {
-  // Every panel goes through here, so the "only tabs you can see" rule holds
-  // for duplicates, reload and select as well as for sorting.
+  // The Duplicates and Reload panels come through here. Sorting and undo filter
+  // in readWindow(), Select in previewSelection(), the watch in
+  // respondToNewTab() — every entry point applies the same rule.
   if (scope === 'all') return visible(await api.tabs.query({ windowType: 'normal' }));
   const win = await api.windows.getCurrent();
   return visible(await api.tabs.query({ windowId: win.id }));
@@ -341,7 +342,10 @@ export async function previewSelection(settings, { tab: anchor } = {}) {
   // A tab context menu acts on the tab that was right-clicked, which may be in
   // another window and is often not the active one.
   const windowId = anchor ? anchor.windowId : (await api.windows.getCurrent()).id;
-  const tabs = await api.tabs.query({ windowId });
+  // Visible only: highlight() takes strip indices and activates its first entry,
+  // so a tab from another space in this set would both mis-address the strip and
+  // pull the user out of the space they are in.
+  const tabs = visible(await api.tabs.query({ windowId }));
   const context = anchor
     ? { activeTabId: anchor.id, activeGroupId: anchor.groupId ?? TAB_GROUP_ID_NONE }
     : await reloadContext();
@@ -412,11 +416,18 @@ export async function respondToNewTab(tab, settings) {
     return { acted: false };
   }
 
-  const scoped =
+  // Hidden tabs are excluded here for the same reason as everywhere else, and it
+  // matters most on this path: the watch closes tabs on its own. A copy sitting
+  // in another Zen space must not close the tab the user just opened, and must
+  // not be closed or activated itself.
+  const scoped = visible(
     settings.scope === 'window'
       ? await api.tabs.query({ windowId: tab.windowId })
-      : await api.tabs.query({ windowType: 'normal' });
+      : await api.tabs.query({ windowType: 'normal' })
+  );
 
+  // Visible tabs only, so "the last tab in its window" means the last one the
+  // user can see — a space holding a single tab must not look populated.
   const windowTabCount = scoped.filter((t) => t.windowId === tab.windowId).length;
   const plan = planDuplicateResponse(
     tab,

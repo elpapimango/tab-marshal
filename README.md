@@ -40,7 +40,9 @@ declared here as `none` — only exists from 140, and `tabGroups` only from 139.
 
 Zen keeps every space's tabs in one window and hides the ones belonging to other spaces. Tab Marshal
 never touches a hidden tab, so sorting, duplicates, reload and select all stay inside the space you
-are looking at, and your other spaces keep both their place in the strip and their own order.
+are looking at, and your other spaces keep both their place in the strip and their own order. That
+includes the duplicate watch: a copy sitting in another space never provokes it, and the tab it
+declines to close is counted against the space you can see, not the whole window.
 
 Sorting reuses exactly the strip positions the visible tabs already occupy rather than packing them
 to the front, so a hidden tab is never stepped over. Without hidden tabs those positions are

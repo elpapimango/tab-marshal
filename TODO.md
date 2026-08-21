@@ -13,7 +13,7 @@ Last reviewed: 2026-08-21, at 1.6.0.
 - [ ] **Upload `dist/tab-marshal-1.6.0.zip`** to AMO, the Chrome Web Store and Partner Center. The
       release notes and the reviewer / certification text are already written in `store/`.
 
-## Deferred code
+## Still deferred
 
 - [ ] **The badge can stick.** `flashBadge` in `src/background.js:390` clears itself with
       `setTimeout(…, 1800)`. If Chromium evicts the service worker inside that window the badge stays

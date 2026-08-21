@@ -184,8 +184,18 @@ function isMissing(k) {
  * either a single ungrouped tab or a whole tab group; tab groups have to stay
  * contiguous in the strip, so blocks are the unit that can be reordered.
  */
+/** True when `tabs` is already in ascending index order. */
+function isOrderedByIndex(tabs) {
+  for (let i = 1; i < tabs.length; i++) {
+    if (tabs[i].index < tabs[i - 1].index) return false;
+  }
+  return true;
+}
+
 export function splitIntoBlocks(tabs) {
-  const ordered = [...tabs].sort((a, b) => a.index - b.index);
+  // apply.js's readWindow() already sorts by index before this ever runs; skip
+  // the redundant sort rather than paying for it on every call.
+  const ordered = isOrderedByIndex(tabs) ? tabs : [...tabs].sort((a, b) => a.index - b.index);
   const pinned = ordered.filter((t) => t.pinned);
   const rest = ordered.filter((t) => !t.pinned);
 

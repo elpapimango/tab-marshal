@@ -53,6 +53,19 @@ test('an invalid regex throws a readable error', () => {
   assert.throws(() => prepareAutoGroupRules([rule({ mode: 'regex', value: '(', groupName: 'X' })]), /\(/);
 });
 
+test('editing a rule in place is not served from a stale cache', () => {
+  const raw = [rule({ value: 'github.com', groupName: 'Old' })];
+  prepareAutoGroupRules(raw); // warm the memo with the array's original contents
+
+  // updateRule() in popup.js replaces the element without swapping the array
+  // itself, so the same reference comes back with different content.
+  raw[0] = rule({ value: 'github.com', groupName: 'New' });
+  const rules = prepareAutoGroupRules(raw);
+
+  const [tab] = tabs([[1, 'https://github.com/a']]);
+  assert.equal(matchRule(tab, rules).groupName, 'New');
+});
+
 test('domain/hostname/url/path/title fields all resolve through the shared filter', () => {
   const [tab] = tabs([[1, 'https://news.bbc.co.uk/story', { title: 'BBC story' }]]);
   assert.equal(matchRule(tab, prepareAutoGroupRules([rule({ field: 'domain', value: 'bbc.co.uk', groupName: 'G' })])).groupName, 'G');

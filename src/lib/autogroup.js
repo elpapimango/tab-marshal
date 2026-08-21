@@ -31,9 +31,20 @@ export const DEFAULT_AUTOGROUP_OPTIONS = Object.freeze({
   rules: []
 });
 
+// Keyed on a content signature rather than the rules array's identity: popup.js
+// (updateRule) replaces rule objects in place without ever swapping the array
+// itself, so an identity check would keep serving a stale compile across an
+// edit. This is the one piece of state in an otherwise pure module — it exists
+// purely as a memo for applyAutoGroupTab(), which calls it on every new tab.
+let lastRulesKey = null;
+let lastPreparedRules = null;
+
 /** Compile each rule's regex once; throws a readable error on a bad pattern. */
 export function prepareAutoGroupRules(rules) {
-  return (rules || []).map((rule) => {
+  const key = JSON.stringify(rules || []);
+  if (key === lastRulesKey) return lastPreparedRules;
+
+  const prepared = (rules || []).map((rule) => {
     const opts = { ...DEFAULT_RULE, ...rule };
     if (opts.mode === 'regex' && opts.value) {
       try {
@@ -44,6 +55,10 @@ export function prepareAutoGroupRules(rules) {
     }
     return opts;
   });
+
+  lastRulesKey = key;
+  lastPreparedRules = prepared;
+  return prepared;
 }
 
 /**

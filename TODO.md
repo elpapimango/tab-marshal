@@ -2,7 +2,7 @@
 
 Known work, deliberately not done. Nothing here is blocking and nothing is user-visible.
 
-Last reviewed: 2026-08-18, at 1.6.0.
+Last reviewed: 2026-08-21, at 1.6.0.
 
 ## Before the 1.6.0 store submission
 
@@ -15,26 +15,11 @@ Last reviewed: 2026-08-18, at 1.6.0.
 
 ## Deferred code
 
-- [ ] **Validate the cached theme id.** `src/theme-boot.js:11` puts whatever is in `localStorage`
-      onto `data-theme` without checking it against `CONCRETE_THEMES`. No security impact — it is an
-      attribute, not markup — but if a palette is ever removed from `popup.css`, a user holding that
-      id sees an unstyled popup until their first settings change. Two lines. Worth doing next time
-      the theme code is open.
-
 - [ ] **The badge can stick.** `flashBadge` in `src/background.js:390` clears itself with
       `setTimeout(…, 1800)`. If Chromium evicts the service worker inside that window the badge stays
       until the next action. The fix is `chrome.alarms`, which costs a permission for a cosmetic bug —
-      probably not worth it, but this is why the behaviour exists.
-
-- [ ] **Auto-Group recompiles every rule's regex per new tab.** `prepareAutoGroupRules`
-      (`src/lib/autogroup.js:35`) runs on each tab creation via `applyAutoGroupTab`. Caching on the
-      rules array's identity is *unsafe*: `updateRule` in `popup.js` replaces elements in place
-      without changing the array, so the cache would serve stale patterns. Needs a real invalidation
-      key. The worker's settings cache already removed the larger cost, which was the storage read.
-
-- [ ] **The same list is sorted twice.** `apply.js:38` orders a window's tabs by index, then
-      `splitIntoBlocks` (`sorter.js:188`) orders them again. Micro-optimisation; would mean giving
-      `splitIntoBlocks` a way to accept an already-ordered list.
+      probably not worth it, but this is why the behaviour exists. **No new permissions** is an
+      invariant (see CLAUDE.md), so this stays undone until that trade-off is revisited on purpose.
 
 ## Considered and rejected
 
